@@ -1,0 +1,28 @@
+node_modules/
+.next/
+out/
+build/
+
+.env
+.env.local
+.env.*.local
+
+*.tsbuildinfo
+next-env.d.ts
+
+.DS_Store
+*.log
+
+# Contient le secret du webhook
+supabase/configure_webhook.sql
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+.vercel
+.env*
+
+# État local du CLI Supabase
+supabase/.temp/
+supabase/.branches/
