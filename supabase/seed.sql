@@ -12,7 +12,7 @@ insert into public.listings (
 
 -- ── Rencontres ───────────────────────────────────────────────────────────
 ('mireille-23-brazzaville', 'Mireille, 23 ans', 'Sorties & soirées',
- E'Profil vérifié à Brazzaville. Mireille privilégie les échanges respectueux et les rendez-vous organisés en toute discrétion.',
+ E'Mireille privilégie les échanges respectueux et les rendez-vous organisés en toute discrétion.',
  'categorie-a', 'option_1', 'sur_place', 'brazzaville', 'Bacongo', 25000, 'hour',
  '[{"label":"Rendez-vous","amount_xaf":25000,"unit":"hour"}]',
  '/profiles/mireille.png',
@@ -21,7 +21,7 @@ insert into public.listings (
 
 -- ── Massages ─────────────────────────────────────────────────────────────
 ('sonia-25-pointe-noire', 'Sonia, 25 ans', 'Massages sensuels & relaxation',
- E'Profil vérifié à Pointe-Noire. Sonia propose des moments de détente dans un cadre serein et respectueux.',
+ E'Sonia propose des moments de détente dans un cadre serein et respectueux.',
  'categorie-b', 'option_2', 'sur_place', 'pointe-noire', 'Centre-ville', 35000, 'hour',
  '[{"label":"Séance","amount_xaf":35000,"unit":"hour"}]',
  '/profiles/sonia.png',
@@ -30,7 +30,7 @@ insert into public.listings (
 
 -- ── Escortes ─────────────────────────────────────────────────────────────
 ('grace-22-brazzaville', 'Grace, 22 ans', 'Accompagnement VIP',
- E'Profil vérifié à Brazzaville. Grace propose un accompagnement discret pour vos sorties et soirées.',
+ E'Grace propose un accompagnement discret pour vos sorties et soirées.',
  'categorie-c', 'option_3', 'les_deux', 'brazzaville', 'Centre-ville', 50000, 'hour',
  '[{"label":"Accompagnement","amount_xaf":50000,"unit":"hour"}]',
  '/profiles/grace.png',
@@ -48,3 +48,13 @@ on conflict (slug) do update set
   languages = excluded.languages, availability = excluded.availability, status = excluded.status;
 
 end $$;
+
+-- Vérification d'identité (migration 0010) --------------------------------
+-- Aucune annonce de démonstration n'a fait l'objet d'une vérification : elles
+-- ne portent pas le badge et ne restent visibles que pendant un délai de
+-- grâce, recalculé à chaque `db reset` pour que la stack locale affiche un
+-- catalogue.
+update public.listings
+   set is_verified = false,
+       verification_grace_until = now() + interval '7 days'
+ where owner_id is null and status = 'published';
