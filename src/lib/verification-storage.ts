@@ -44,9 +44,17 @@ export async function listVerificationVideos(): Promise<StoredVideo[]> {
           console.error("[verification] folder listing failed", folderError);
           return [];
         }
-        return files
-          .filter((file) => file.id && file.created_at)
-          .map((file) => ({ path: `${folder.name}/${file.name}`, createdAt: file.created_at as string }));
+        // Un timestamp inconnu est traité comme ancien : l'objet sera éligible au nettoyage.
+        // Les fichiers orphelins doivent être supprimables, ne pas se bloquer sur une métadonnée manquante.
+        return files.filter((file) => file.id).map((file) => {
+          if (!file.created_at) {
+            console.error("[verification] file without created_at", `${folder.name}/${file.name}`);
+          }
+          return {
+            path: `${folder.name}/${file.name}`,
+            createdAt: file.created_at ?? new Date(0).toISOString(),
+          };
+        });
       }),
   );
 
