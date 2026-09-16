@@ -7,7 +7,7 @@
 -- compte n'est lisible que par l'équipe, et chaque décision est tracée.
 
 begin;
-select plan(45);
+select plan(50);
 
 -- Jeu d'essai ---------------------------------------------------------------
 -- p1 : partenaire à vérifier · p2 : tiers, puis compte mineur · adm : administrateur
@@ -475,6 +475,98 @@ select ok(
     'EXECUTE'),
   'le rôle anon ne peut pas appeler review_verification'
 );
+
+/* -------------------------------------------------------------------------- */
+/*                    Minorité constatée après approbation                    */
+/* -------------------------------------------------------------------------- */
+-- p4 : compte déjà approuvé, dont la minorité n'est découverte qu'après coup.
+-- Jeu d'essai dédié pour ne pas déplacer les comptages déjà vérifiés plus haut
+-- (notamment celui de `moderation_log`).
+
+insert into auth.users (
+  id, instance_id, aud, role, email, encrypted_password,
+  confirmation_token, recovery_token, email_change_token_new,
+  email_change_token_current, phone_change_token, reauthentication_token,
+  email_change, phone_change, email_confirmed_at, created_at, updated_at
+) values (
+  '0a000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000000',
+  'authenticated', 'authenticated', 'verif-p4@test.cg', 'x',
+  '', '', '', '', '', '', '', '', now(), now(), now()
+);
+
+insert into public.verification_requests (
+  user_id, status, challenge_code, document_type, video_path, submitted_at,
+  reviewed_by, reviewed_at
+) values (
+  '0a000000-0000-0000-0000-000000000004', 'approved', 'APPRVD', 'cni',
+  '0a000000-0000-0000-0000-000000000004/fixture.mp4', now(),
+  '0a000000-0000-0000-0000-000000000003', now()
+);
+
+insert into public.listings (
+  id, slug, title, description, category, option_type, mobility, city,
+  price_xaf, price_unit, cover_url, status, owner_id, is_verified
+) values (
+  '0b000000-0000-0000-0000-000000000005', 'verif-approuve', 'Annonce du compte approuvé',
+  'Description suffisamment longue pour la validation applicative.',
+  'categorie-a', 'option_1', 'sur_place', 'brazzaville', 20000, 'hour',
+  'https://exemple/v6.jpg', 'published', '0a000000-0000-0000-0000-000000000004', true
+);
+
+-- Demande posée par p1, qui va tenter de la payer une fois l'annonce archivée.
+insert into public.requests (listing_id, full_name, phone, status, author_id)
+values (
+  '0b000000-0000-0000-0000-000000000005', 'Client Payeur', '+242 06 505 05 05',
+  'confirmed', '0a000000-0000-0000-0000-000000000001'
+);
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"0a000000-0000-0000-0000-000000000003","role":"authenticated"}';
+
+select throws_ok(
+  $$ select review_verification(
+       (select id from public.verification_requests
+         where user_id = '0a000000-0000-0000-0000-000000000004'),
+       'revoke', 'personne_mineure', 'Motif test') $$,
+  'invalid_reason',
+  'la minorité ne peut pas être traitée comme une révocation ordinaire'
+);
+
+select lives_ok(
+  $$ select review_verification(
+       (select id from public.verification_requests
+         where user_id = '0a000000-0000-0000-0000-000000000004'), 'block_minor') $$,
+  'la minorité peut être constatée après coup, sur un compte déjà approuvé'
+);
+
+reset role;
+
+select is(
+  (select status::text from public.listings where slug = 'verif-approuve'),
+  'archived',
+  'constat de minorité après approbation : les annonces du compte sont archivées'
+);
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"0a000000-0000-0000-0000-000000000004","role":"authenticated"}';
+
+select throws_ok(
+  $$ select * from start_verification() $$,
+  'blocked',
+  'un compte approuvé puis signalé mineur ne peut plus demander de vérification'
+);
+
+set local request.jwt.claims = '{"sub":"0a000000-0000-0000-0000-000000000001","role":"authenticated"}';
+
+select throws_ok(
+  $$ select create_payment(
+       (select id from public.requests where listing_id = '0b000000-0000-0000-0000-000000000005'),
+       'MTN_MOMO_COG'::payment_provider, '242065050505') $$,
+  'listing_unavailable',
+  'un paiement sur une annonce archivée après constat de minorité est refusé'
+);
+
+reset role;
 
 select * from finish();
 rollback;

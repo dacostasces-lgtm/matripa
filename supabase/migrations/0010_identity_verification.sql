@@ -174,6 +174,16 @@ begin
     return new;
   end if;
 
+  -- Verrou consultatif partagé, à la clé du compte : `review_verification`
+  -- prend un verrou exclusif sur la même clé avant de modifier les annonces.
+  -- Attendre ici force ce trigger à repartir d'un instantané postérieur à la
+  -- décision en cours (chaque instruction PL/pgSQL prend un nouveau snapshot
+  -- après une attente), ce qui évite qu'une annonce insérée ou modifiée
+  -- pendant une révocation concurrente ne garde un badge déjà retiré.
+  if new.owner_id is not null then
+    perform pg_advisory_xact_lock_shared(hashtextextended(new.owner_id::text, 0));
+  end if;
+
   if tg_op = 'INSERT' then
     new.is_verified := public.is_account_verified(new.owner_id);
     new.verification_grace_until := null;
@@ -227,8 +237,9 @@ begin
 end;
 $$;
 
--- Une annonce masquée (délai écoulé, compte révoqué) ne doit plus recevoir de
--- demande : la fonction contourne RLS et doit donc reprendre la même règle.
+-- Une annonce masquée (délai écoulé, compte bloqué ou révoqué) ne doit plus
+-- recevoir de demande ni de paiement : `submit_request` et `create_payment`
+-- contournent RLS et doivent donc reprendre la même règle.
 create or replace function public.submit_request(
   p_listing_id  uuid,
   p_full_name   text,
@@ -272,6 +283,67 @@ begin
   returning id into v_id;
 
   return v_id;
+end;
+$$;
+
+-- Même règle que `submit_request`, côté paiement : un compte bloqué après
+-- constat de minorité (annonces archivées) ou dont le délai de grâce est
+-- écoulé ne doit plus pouvoir être payé. Redéfinition intégrale de la
+-- fonction de la migration 0009 : seul l'ajout du contrôle de disponibilité,
+-- juste après la vérification d'éligibilité, change. Le GRANT existant sur
+-- la fonction n'est pas affecté par ce `create or replace`.
+create or replace function public.create_payment(
+  p_request_id uuid,
+  p_provider   payment_provider,
+  p_phone      text
+) returns table (payment_id uuid, amount_xaf integer)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_listing     uuid;
+  v_amount      integer;
+  v_id          uuid;
+  v_status      listing_status;
+  v_is_verified boolean;
+  v_grace_until timestamptz;
+begin
+  if auth.uid() is null then
+    raise exception 'authentication_required' using errcode = '42501';
+  end if;
+
+  -- La demande doit appartenir à l'appelant. Le montant est lu sur l'annonce,
+  -- pas reçu en paramètre : un client ne peut pas se facturer 1 FCFA.
+  select r.listing_id, l.price_xaf, l.status, l.is_verified, l.verification_grace_until
+    into v_listing, v_amount, v_status, v_is_verified, v_grace_until
+    from public.requests r
+    join public.listings l on l.id = r.listing_id
+   where r.id = p_request_id
+     and r.author_id = auth.uid()
+     and r.status <> 'cancelled';
+
+  if v_listing is null then
+    raise exception 'not_eligible' using errcode = '42501';
+  end if;
+
+  if v_status <> 'published' or not (v_is_verified or v_grace_until > now()) then
+    raise exception 'listing_unavailable' using errcode = '22023';
+  end if;
+
+  if exists (
+    select 1 from public.payments
+     where request_id = p_request_id
+       and status in ('pending', 'processing', 'completed')
+  ) then
+    raise exception 'payment_already_exists' using errcode = '22023';
+  end if;
+
+  insert into public.payments (request_id, listing_id, payer_id, amount_xaf, provider, phone)
+  values (p_request_id, v_listing, auth.uid(), v_amount, p_provider, regexp_replace(p_phone, '\D', '', 'g'))
+  returning id into v_id;
+
+  return query select v_id, v_amount;
 end;
 $$;
 
@@ -414,8 +486,12 @@ begin
     raise exception 'not_found' using errcode = 'P0002';
   end if;
 
+  -- `block_minor` reste possible sur une demande déjà approuvée : la
+  -- minorité peut être constatée après coup, pas seulement lors de l'examen
+  -- initial.
   if (p_decision = 'revoke' and v_request.status <> 'approved')
-     or (p_decision <> 'revoke' and v_request.status <> 'pending') then
+     or (p_decision = 'block_minor' and v_request.status not in ('pending', 'approved'))
+     or (p_decision not in ('revoke', 'block_minor') and v_request.status <> 'pending') then
     raise exception 'already_reviewed' using errcode = 'P0001';
   end if;
 
@@ -424,9 +500,18 @@ begin
     raise exception 'reason_required' using errcode = '22023';
   end if;
 
-  if p_decision = 'reject' and p_reason = 'personne_mineure' then
+  -- La minorité est un constat (`block_minor`), pas un motif de rejet ou de
+  -- révocation ordinaire : elle bloque le compte et archive ses annonces, ce
+  -- que `reject`/`revoke` ne font pas.
+  if p_decision in ('reject', 'revoke') and p_reason = 'personne_mineure' then
     raise exception 'invalid_reason' using errcode = '22023';
   end if;
+
+  -- Verrou consultatif exclusif, à la clé du compte : sérialise cette
+  -- décision avec toute insertion ou mise à jour d'annonce concurrente
+  -- (verrou partagé pris dans le trigger `listings_enforce_verification`),
+  -- pour qu'aucune annonce ne garde ou ne perde son badge à contretemps.
+  perform pg_advisory_xact_lock(hashtextextended(v_request.user_id::text, 0));
 
   if p_decision = 'approve' then
     update public.verification_requests
