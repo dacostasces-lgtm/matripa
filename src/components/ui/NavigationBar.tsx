@@ -4,7 +4,7 @@ import { Inter } from "next/font/google";
 // Navigation bar component – premium dark mode with gold/neon accents
 export function NavigationBar() {
   return (
-    <nav className="sticky top-0 z-20 flex items-center justify-between bg-surface/90 backdrop-blur-md border-b border-white/10 px-4 py-2 sm:px-6 lg:px-8">
+    <nav className="sticky top-0 z-20 flex items-center justify-between bg-surface/95 backdrop-blur-md border-b border-gold px-4 py-2 sm:px-6 lg:px-8">
       <Link href="/" className="font-display text-xl font-semibold text-white hover:text-gold transition-colors">
         Matripa
       </Link>
