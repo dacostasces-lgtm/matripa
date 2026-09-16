@@ -72,7 +72,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         </Suspense>
 
         <div className="sticky top-0 z-30 mt-8 -mx-4 space-y-3 border-b border-white/[0.06] bg-surface/85 px-4 py-3 backdrop-blur-2xl sm:-mx-6 sm:px-6 sm:py-4 lg:-mx-8 lg:px-8">
-          <div className="flex items-center gap-2 sm:gap-3">
+          {/* Réserve à droite : le bouton Discrétion flotte au-dessus de cette barre une fois collée. */}
+          <div className="flex items-center gap-2 pr-11 sm:gap-3 sm:pr-28 lg:pr-[6.5rem]">
             <div className="min-w-0 flex-1">
               <SearchInput filters={filters} />
             </div>

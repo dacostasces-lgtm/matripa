@@ -51,14 +51,21 @@ export function EmergencyDiscretionButton() {
 
   return (
     <>
-      {/* Bouton discret flottant en bas à gauche pour ne pas gêner les actions en bas à droite */}
+      {/*
+        Flottant en haut à droite : le bas de l'écran appartient au dock de
+        navigation et au bandeau d'action des fiches. Toujours visible au
+        défilement — c'est un bouton d'urgence. En z-40, sous les fenêtres
+        modales (z-50), pour ne jamais masquer leur bouton de fermeture.
+        Les barres collées en haut (filtres de l'accueil, en-tête partenaire)
+        réservent sa place à droite.
+      */}
       {!isActive && (
         <button
           type="button"
           onClick={activateDiscretion}
           title="Mode Discrétion (ou double appui sur Échap)"
           aria-label="Mode Discrétion immédiate"
-          className="fixed bottom-4 left-4 z-50 flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/80 px-3 py-1.5 text-xs font-medium text-slate-400 backdrop-blur-xl shadow-lg transition hover:border-white/25 hover:bg-slate-900 hover:text-white focus:outline-none focus:ring-2 focus:ring-slate-400/50 active:scale-95"
+          className="fixed right-3 top-[max(0.75rem,env(safe-area-inset-top))] z-40 flex h-10 min-w-10 items-center justify-center gap-2 rounded-full border border-white/10 bg-slate-950/80 px-2.5 text-xs font-medium text-slate-400 shadow-lg backdrop-blur-xl transition hover:border-white/25 hover:bg-slate-900 hover:text-white focus:outline-none focus:ring-2 focus:ring-slate-400/50 active:scale-95 sm:right-4 sm:px-3.5"
         >
           <EyeOff className="size-3.5 text-slate-400" aria-hidden />
           <span className="hidden sm:inline">Discrétion</span>

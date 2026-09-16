@@ -77,7 +77,8 @@ export function FilterDrawer({ filters }: { filters: ListingFilters }) {
           aria-haspopup="dialog"
           aria-expanded={open}
           className={cx(
-            "inline-flex h-11 shrink-0 items-center gap-2 rounded-full border px-4",
+            // Icône seule sous `sm` : la barre réserve déjà la place du bouton Discrétion.
+            "inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-full border px-3 sm:px-4",
             "text-sm font-medium transition duration-300",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon/70",
             count > 0
@@ -86,7 +87,7 @@ export function FilterDrawer({ filters }: { filters: ListingFilters }) {
           )}
         >
           <SlidersHorizontal className="size-4" aria-hidden />
-          Filtres
+          <span className="sr-only sm:not-sr-only">Filtres</span>
           {count > 0 && (
             <span className="grid size-5 place-items-center rounded-full bg-action text-[11px] font-bold text-slate-950">
               {count}

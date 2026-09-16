@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Inbox, LayoutGrid, Store, UserRound, type LucideIcon } from "lucide-react";
+import { Inbox, LayoutGrid, Plus, UserRound, type LucideIcon } from "lucide-react";
 
-type NavLink = {
+import { cx } from "@/lib/format";
+
+type Tab = {
   href: string;
   label: string;
   icon: LucideIcon;
@@ -14,8 +16,9 @@ type NavLink = {
 /**
  * Uniquement des routes qui existent. L'administration reste absente : elle
  * renvoie 404 aux non-administrateurs, la référencer annoncerait son existence.
+ * Libellés courts : ils doivent tenir sous l'icône sur un écran de 320 px.
  */
-const LINKS: NavLink[] = [
+const TABS: Tab[] = [
   {
     href: "/",
     label: "Annonces",
@@ -24,80 +27,99 @@ const LINKS: NavLink[] = [
   },
   {
     href: "/mes-demandes",
-    label: "Mes demandes",
+    label: "Demandes",
     icon: Inbox,
     isActive: (p) => p.startsWith("/mes-demandes"),
   },
   {
     href: "/compte",
-    label: "Mon compte",
+    label: "Compte",
     icon: UserRound,
-    isActive: (p) => p.startsWith("/compte"),
+    isActive: (p) =>
+      p.startsWith("/compte") || p.startsWith("/connexion") || p.startsWith("/mot-de-passe"),
   },
 ];
 
 /**
- * Barre globale, rendue par le layout racine.
+ * Dock de navigation flottant, en bas de l'écran sur toutes les tailles.
  *
- * Volontairement non collante : sur l'accueil, c'est la barre de recherche et
- * de filtres qui occupe le haut de l'écran au défilement. Empiler les deux
- * mangerait plus d'un quart de la hauteur d'un téléphone.
+ * Trois onglets discrets, puis l'action principale — publier — traitée en or,
+ * seule surface métal du dock (l'or porte l'action principale, cf. globals.css).
  *
- * Elle ne lit pas la session : le faire depuis le layout rendrait toutes les
- * pages dynamiques et annulerait leur mise en cache. Les routes protégées
- * redirigent d'elles-mêmes vers /connexion.
+ * Masqué sur mobile dans les fiches d'annonce : le bandeau d'action
+ * (prix, WhatsApp, Contacter) y occupe déjà le bas de l'écran.
+ *
+ * Il ne lit pas la session : le faire depuis le layout rendrait toutes les
+ * pages dynamiques. Les routes protégées redirigent d'elles-mêmes vers /connexion.
  */
 export function NavigationBar() {
   const pathname = usePathname();
-
-  // L'espace partenaire a son propre en-tête (création de profil, déconnexion).
-  if (pathname.startsWith("/partenaire")) return null;
+  const onListing = pathname.startsWith("/annonces/");
+  const publishing = pathname.startsWith("/partenaire");
 
   return (
-    <header className="border-b border-gold bg-surface/95 pt-[env(safe-area-inset-top)]">
-      <nav
-        aria-label="Navigation principale"
-        className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-3 px-4 py-2.5 sm:px-6 lg:px-8"
-      >
-        <Link
-          href="/"
-          className="rounded-md font-display text-xl font-semibold tracking-wide text-white transition-colors hover:text-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/70"
-        >
-          Matripa
-        </Link>
-
-        <ul className="flex items-center gap-1 sm:gap-2">
-          {LINKS.map(({ href, label, icon: Icon, isActive }) => {
+    <nav
+      aria-label="Navigation principale"
+      className={cx(
+        "pointer-events-none fixed inset-x-0 bottom-0 z-40 justify-center px-3",
+        "pb-[max(0.75rem,env(safe-area-inset-bottom))]",
+        onListing ? "hidden lg:flex" : "flex",
+      )}
+    >
+      <div className="pointer-events-auto flex items-center rounded-full border border-gold/20 bg-surface-raised/90 p-1.5 shadow-[0_20px_50px_-12px_rgb(0_0_0/0.9)] backdrop-blur-2xl">
+        <ul className="flex items-center">
+          {TABS.map(({ href, label, icon: Icon, isActive }) => {
             const active = isActive(pathname);
             return (
               <li key={href}>
                 <Link
                   href={href}
                   aria-current={active ? "page" : undefined}
-                  className={`inline-flex h-10 min-w-10 items-center justify-center gap-2 rounded-full px-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/70 sm:px-3 ${
-                    active
-                      ? "bg-white/[0.08] text-white"
-                      : "text-slate-400 hover:bg-white/[0.05] hover:text-white"
-                  }`}
+                  className={cx(
+                    // `pb-2` remonte icône et libellé pour laisser respirer le point actif.
+                    "relative flex h-14 w-[clamp(3.75rem,19vw,4.75rem)] flex-col items-center justify-center gap-1 rounded-full pb-2",
+                    "text-[11px] font-medium leading-none transition-colors",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon/70",
+                    active ? "text-gold-soft" : "text-slate-400 hover:text-white",
+                  )}
                 >
-                  <Icon className={`size-4 ${active ? "text-gold" : ""}`} aria-hidden />
-                  <span className="sr-only sm:not-sr-only">{label}</span>
+                  <Icon
+                    className={cx("size-5", active && "text-gold")}
+                    strokeWidth={active ? 2.25 : 1.75}
+                    aria-hidden
+                  />
+                  {label}
+                  {active && (
+                    <span
+                      aria-hidden
+                      className="absolute bottom-1 size-1 rounded-full bg-gold shadow-[0_0_8px_2px_rgb(233_200_119/0.55)]"
+                    />
+                  )}
                 </Link>
               </li>
             );
           })}
-
-          <li className="ml-1">
-            <Link
-              href="/partenaire"
-              className="inline-flex h-10 min-w-10 items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-2.5 text-sm text-slate-300 transition hover:border-white/20 hover:bg-white/[0.09] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon/70 sm:px-3.5"
-            >
-              <Store className="size-4" aria-hidden />
-              <span className="sr-only md:not-sr-only">Publier une annonce</span>
-            </Link>
-          </li>
         </ul>
-      </nav>
-    </header>
+
+        <span aria-hidden className="mx-1.5 h-8 w-px bg-white/10" />
+
+        <Link
+          href="/partenaire"
+          aria-current={publishing ? "page" : undefined}
+          aria-label="Publier une annonce"
+          title="Publier une annonce"
+          className={cx(
+            "grid size-14 place-items-center rounded-full bg-action text-slate-950",
+            "shadow-[0_8px_28px_-6px_rgb(233_200_119/0.6)] transition active:scale-95 hover:brightness-110",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon/70 focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
+            "sm:flex sm:w-auto sm:gap-2 sm:px-5 sm:text-sm sm:font-semibold",
+            publishing && "ring-2 ring-gold-soft/60 ring-offset-2 ring-offset-surface-raised",
+          )}
+        >
+          <Plus className="size-6 sm:size-5" strokeWidth={2.25} aria-hidden />
+          <span className="hidden sm:inline">Publier</span>
+        </Link>
+      </div>
+    </nav>
   );
 }

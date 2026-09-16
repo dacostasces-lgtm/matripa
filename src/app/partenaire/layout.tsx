@@ -24,7 +24,8 @@ export default async function PartenaireLayout({
   return (
     <div className="min-h-dvh bg-slate-950 text-slate-100">
       <header className="sticky top-0 z-30 border-b border-white/10 bg-slate-950/85 backdrop-blur-xl">
-        <div className="mx-auto flex w-full max-w-6xl items-center gap-4 px-4 py-3 sm:px-6">
+        {/* Réserve à droite pour le bouton Discrétion, qui flotte en haut à droite. */}
+        <div className="mx-auto flex w-full max-w-6xl items-center gap-4 py-3 pl-4 pr-14 sm:pl-6 sm:pr-36">
           <Link href="/" className="flex items-center gap-2 text-sm font-semibold text-white">
             <Sparkles className="size-4 text-amber-300" aria-hidden />
             Matripa

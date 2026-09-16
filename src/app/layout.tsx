@@ -54,7 +54,8 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr" className={`${inter.variable} ${cormorant.variable}`}>
-      <body className="bg-surface font-sans text-slate-100 antialiased">
+      {/* Marge basse : le dock de navigation flotte par-dessus la fin de page. */}
+      <body className="bg-surface pb-[calc(6rem+env(safe-area-inset-bottom))] font-sans text-slate-100 antialiased">
         <NavigationBar />
         {children}
         <SiteFooter />
