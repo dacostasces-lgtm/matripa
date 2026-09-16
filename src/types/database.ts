@@ -1,4 +1,10 @@
 import type { Listing } from "./listing";
+import type {
+  VerificationDecision,
+  VerificationDocument,
+  VerificationRejection,
+  VerificationStatus,
+} from "./verification";
 
 export type ListingStatus = "draft" | "published" | "archived";
 export type RequestStatus = "pending" | "contacted" | "confirmed" | "cancelled";
@@ -31,6 +37,22 @@ export type ReviewRow = {
   created_at: string;
 };
 
+export type VerificationRequestRow = {
+  id: string;
+  user_id: string;
+  status: VerificationStatus;
+  challenge_code: string;
+  code_expires_at: string;
+  document_type: VerificationDocument | null;
+  video_path: string | null;
+  submitted_at: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  rejection_reason: VerificationRejection | null;
+  rejection_note: string | null;
+  created_at: string;
+};
+
 /**
  * Colonnes présentes en base mais absentes du modèle de domaine : elles
  * servent au filtrage/à la recherche, jamais à l'affichage.
@@ -38,6 +60,8 @@ export type ReviewRow = {
 export type ListingRow = Listing & {
   status: ListingStatus;
   owner_id: string | null;
+  /** Fin du délai de grâce d'une annonce publiée avant la vérification obligatoire. */
+  verification_grace_until: string | null;
   /** Colonne générée (tsvector) alimentant la recherche plein texte. */
   search_vector: string | null;
 };
@@ -139,13 +163,23 @@ export interface Database {
       moderation_log: {
         Row: {
           id: string;
-          review_id: string;
-          listing_id: string;
+          review_id: string | null;
+          listing_id: string | null;
+          verification_id: string | null;
+          action: "remove_review" | VerificationDecision;
           moderator_id: string | null;
           reason: string | null;
           created_at: string;
         };
-        // Écrit exclusivement par `moderate_review`.
+        // Écrit exclusivement par `moderate_review` et `review_verification`.
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      verification_requests: {
+        Row: VerificationRequestRow;
+        // Écritures réservées aux fonctions `start_verification`,
+        // `submit_verification` et `review_verification`.
         Insert: never;
         Update: never;
         Relationships: [];
@@ -201,6 +235,25 @@ export interface Database {
         };
         Returns: string;
       };
+      is_account_verified: { Args: { p_user_id: string }; Returns: boolean };
+      start_verification: {
+        Args: Record<string, never>;
+        Returns: { id: string; challenge_code: string; code_expires_at: string }[];
+      };
+      submit_verification: {
+        Args: { p_id: string; p_document: VerificationDocument; p_video_path: string };
+        Returns: undefined;
+      };
+      review_verification: {
+        Args: {
+          p_id: string;
+          p_decision: VerificationDecision;
+          p_reason?: VerificationRejection | null;
+          p_note?: string | null;
+        };
+        Returns: string | null;
+      };
+      clear_verification_video: { Args: { p_id: string }; Returns: undefined };
     };
     Enums: {
       listing_category: "categorie-a" | "categorie-b" | "categorie-c";
@@ -210,6 +263,9 @@ export interface Database {
       request_status: RequestStatus;
       payment_status: PaymentStatus;
       payment_provider: PaymentProvider;
+      verification_status: VerificationStatus;
+      verification_document: VerificationDocument;
+      verification_rejection: VerificationRejection;
     };
     CompositeTypes: Record<never, never>;
   };
