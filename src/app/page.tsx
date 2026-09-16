@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowUpRight, Crown, Sparkles, Store } from "lucide-react";
+import { ArrowUpRight, Crown, Sparkles } from "lucide-react";
 
 import { CategoryTabs } from "@/components/listings/CategoryTabs";
 import { CityNav } from "@/components/listings/CityNav";
@@ -43,30 +43,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     <main className="relative min-h-dvh text-slate-100">
       <AmbientHalo />
 
-      <div className="relative z-10 mx-auto w-full max-w-[1600px] px-4 pb-24 pt-4 sm:px-6 sm:pt-6 lg:px-8">
-        {/*
-          Barre de service. Sans elle, l'espace partenaire n'a aucun point
-          d'entrée depuis le site public : il fallait connaître l'URL.
-          L'administration reste volontairement absente — elle renvoie 404 aux
-          non-administrateurs, la référencer ne ferait qu'annoncer son existence.
-        */}
-        <nav
-          aria-label="Navigation de service"
-          className="mb-6 flex items-center justify-between gap-4 sm:mb-8"
-        >
-          <span className="font-display text-lg font-semibold tracking-wide text-white">
-            Matripa
-          </span>
-
-          <Link
-            href="/partenaire"
-            className="inline-flex h-9 items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3.5 text-sm text-slate-300 backdrop-blur-md transition hover:border-white/20 hover:bg-white/[0.09] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon/70"
-          >
-            <Store className="size-4" aria-hidden />
-            Publier une annonce
-          </Link>
-        </nav>
-
+      {/* La navigation (dont l'entrée vers l'espace partenaire) est rendue par le layout racine. */}
+      <div className="relative z-10 mx-auto w-full max-w-[1600px] px-4 pb-24 pt-6 sm:px-6 sm:pt-10 lg:px-8">
         <header className="mb-8 flex flex-col gap-6 sm:mb-12 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl space-y-4">
             <span className="inline-flex items-center gap-2 rounded-full border border-gold/25 bg-gold/[0.07] px-3 py-1.5 text-xs font-medium text-gold-soft backdrop-blur-md">

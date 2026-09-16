@@ -56,7 +56,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="fr" className={`${inter.variable} ${cormorant.variable}`}>
       <body className="bg-surface font-sans text-slate-100 antialiased">
         <NavigationBar />
-{children}
+        {children}
         <SiteFooter />
         <ServiceWorkerRegistration />
         <EmergencyDiscretionButton />
