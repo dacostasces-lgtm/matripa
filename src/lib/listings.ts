@@ -88,8 +88,17 @@ async function fetchListingsUncached(filters: ListingFilters): Promise<ListingPa
     return { listings: [], total: 0, hasMore: false };
   }
 
+  const now = Date.now();
+  const sorted = [...(data ?? [])].sort((a, b) => {
+    const aBoosted = a.boosted_until ? new Date(a.boosted_until).getTime() > now : false;
+    const bBoosted = b.boosted_until ? new Date(b.boosted_until).getTime() > now : false;
+    if (aBoosted && !bBoosted) return -1;
+    if (!aBoosted && bBoosted) return 1;
+    return 0;
+  });
+
   const total = count ?? 0;
-  return { listings: data ?? [], total, hasMore: to + 1 < total };
+  return { listings: sorted, total, hasMore: to + 1 < total };
 }
 
 async function fetchListingBySlugUncached(slug: string): Promise<Listing | null> {

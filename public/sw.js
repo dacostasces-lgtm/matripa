@@ -9,9 +9,10 @@
  *     qu'un déploiement ne laisse jamais d'assets obsolètes.
  */
 
-const VERSION = "v1";
+const VERSION = "v2";
 const SHELL_CACHE = `matripa-shell-${VERSION}`;
 const ASSET_CACHE = `matripa-assets-${VERSION}`;
+const IMAGE_CACHE = `matripa-images-${VERSION}`;
 const PAGE_CACHE = `matripa-pages-${VERSION}`;
 
 const OFFLINE_URL = "/offline";
@@ -19,6 +20,8 @@ const SHELL_ASSETS = [OFFLINE_URL];
 
 /** Nombre maximum de pages conservées hors ligne. */
 const PAGE_CACHE_LIMIT = 40;
+/** Nombre maximum d'images compressées conservées hors ligne pour bas débit. */
+const IMAGE_CACHE_LIMIT = 80;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -32,7 +35,7 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
-  const keep = new Set([SHELL_CACHE, ASSET_CACHE, PAGE_CACHE]);
+  const keep = new Set([SHELL_CACHE, ASSET_CACHE, IMAGE_CACHE, PAGE_CACHE]);
 
   event.waitUntil(
     caches
@@ -70,9 +73,16 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Images optimisées et fichiers publics : stale-while-revalidate.
-  if (url.pathname.startsWith("/_next/image") || /\.(png|jpe?g|webp|avif|svg|ico|woff2?)$/i.test(url.pathname)) {
-    event.respondWith(staleWhileRevalidate(request, ASSET_CACHE));
+  // Optimisation bas débit : Cache-First pour images Next.js optimisées (WebP/AVIF)
+  // Permet d'éviter de retélécharger les photos des profils sur les réseaux 3G congolais.
+  if (url.pathname.startsWith("/_next/image") || /\.(png|jpe?g|webp|avif|svg|ico)$/i.test(url.pathname)) {
+    event.respondWith(cacheFirstWithRefresh(request, IMAGE_CACHE, IMAGE_CACHE_LIMIT));
+    return;
+  }
+
+  // Polices : cache-first
+  if (/\.(woff2?|ttf|otf)$/i.test(url.pathname)) {
+    event.respondWith(cacheFirst(request, ASSET_CACHE));
     return;
   }
 
@@ -92,6 +102,36 @@ async function cacheFirst(request, cacheName) {
     cache.put(request, response.clone());
   }
   return response;
+}
+
+async function cacheFirstWithRefresh(request, cacheName, limit) {
+  const cached = await caches.match(request);
+  if (cached) {
+    // Revalidation en arrière-plan discrète pour ne pas consommer de données
+    fetch(request)
+      .then((networkResponse) => {
+        if (networkResponse.ok) {
+          caches.open(cacheName).then((cache) => {
+            cache.put(request, networkResponse);
+            if (limit) trimCache(cacheName, limit);
+          });
+        }
+      })
+      .catch(() => undefined);
+    return cached;
+  }
+
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const cache = await caches.open(cacheName);
+      cache.put(request, response.clone());
+      if (limit) trimCache(cacheName, limit);
+    }
+    return response;
+  } catch {
+    return cached ?? new Response("", { status: 408 });
+  }
 }
 
 async function staleWhileRevalidate(request, cacheName) {

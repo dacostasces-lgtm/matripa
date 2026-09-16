@@ -8,13 +8,18 @@ import {
   ChevronLeft,
   ChevronRight,
   Crown,
+  Gift,
+  Heart,
+  MessageCircle,
   Play,
+  Share2,
   Volume2,
   VolumeX,
   X,
 } from "lucide-react";
 
 import { Portal } from "@/components/ui/Portal";
+import { VirtualGiftsModal } from "@/components/listings/VirtualGiftsModal";
 import { cx } from "@/lib/format";
 import { categoryShort, cityLabel, type VideoStory } from "@/types/listing";
 
@@ -50,14 +55,28 @@ export function VideoStories({ stories }: { stories: VideoStory[] }) {
   if (stories.length === 0) return null;
 
   return (
-    <section aria-label="Aperçus vidéo" className="space-y-3">
-      <div className="flex items-baseline justify-between gap-4">
-        <h2 className="font-display text-xl font-semibold tracking-tight text-white sm:text-2xl">
-          Aperçus en mouvement
-        </h2>
-        <p className="hidden text-xs text-slate-500 sm:block">
-          {stories.length} espaces filmés · balayez pour découvrir
-        </p>
+    <section aria-label="Matripa Shorts — Stories Vidéo" className="space-y-3">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="font-display text-xl font-semibold tracking-tight text-white sm:text-2xl">
+              Matripa Shorts
+            </h2>
+            <span className="rounded-full border border-neon/30 bg-neon/10 px-2.5 py-0.5 text-[10px] font-bold text-neon-soft">
+              15s Vidéo
+            </span>
+          </div>
+          <p className="mt-0.5 text-xs text-slate-400">
+            Stories vidéo de 15 secondes · Découvrez les membres en mouvement
+          </p>
+        </div>
+
+        <Link
+          href="/partenaire"
+          className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-slate-300 hover:border-gold/40 hover:bg-gold/10 hover:text-gold transition"
+        >
+          <span>+ Publier un Short</span>
+        </Link>
       </div>
 
       <ul className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6">
@@ -171,6 +190,10 @@ function StoryPlayer({
   const closeRef = useRef<HTMLButtonElement>(null);
   const [muted, setMuted] = useState(true);
   const [progress, setProgress] = useState(0);
+  const [likes, setLikes] = useState<Record<string, number>>({});
+  const [hasLiked, setHasLiked] = useState<Record<string, boolean>>({});
+  const [giftModalOpen, setGiftModalOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // Verrouille le défilement de l'arrière-plan tant que le lecteur est ouvert.
   useEffect(() => {
@@ -185,8 +208,8 @@ function StoryPlayer({
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
-      if (event.key === "ArrowRight") onNavigate(index + 1);
-      if (event.key === "ArrowLeft") onNavigate(index - 1);
+      if (event.key === "ArrowRight" || event.key === "ArrowDown") onNavigate(index + 1);
+      if (event.key === "ArrowLeft" || event.key === "ArrowUp") onNavigate(index - 1);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -195,11 +218,23 @@ function StoryPlayer({
   // Remet la barre de progression à zéro à chaque changement d'aperçu.
   useEffect(() => setProgress(0), [index]);
 
+  const currentLikes = (likes[story.id] ?? 24) + (hasLiked[story.id] ? 1 : 0);
+
+  const toggleLike = () => {
+    setHasLiked((prev) => ({ ...prev, [story.id]: !prev[story.id] }));
+  };
+
+  const handleShare = () => {
+    navigator.clipboard?.writeText(window.location.origin + `/annonces/${story.slug}`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`Aperçu vidéo — ${story.title}`}
+      aria-label={`Short vidéo 15s — ${story.title}`}
       className="fixed inset-0 z-50 flex items-center justify-center"
     >
       <button
@@ -223,7 +258,7 @@ function StoryPlayer({
           ))}
         </div>
 
-        <div className="relative aspect-[9/16] max-h-[76vh] w-full overflow-hidden rounded-3xl border border-white/10 bg-black">
+        <div className="relative aspect-[9/16] max-h-[76vh] w-full overflow-hidden rounded-3xl border border-white/10 bg-black shadow-2xl">
           <video
             ref={videoRef}
             // La clé force le remontage : sans elle, changer `src` sur un
@@ -242,6 +277,78 @@ function StoryPlayer({
             className="size-full object-cover"
           />
 
+          {/* Badge 15s Shorts en haut */}
+          <div className="absolute left-4 top-4 flex items-center gap-1.5 rounded-full bg-black/50 px-2.5 py-1 text-[10px] font-bold text-neon backdrop-blur-md ring-1 ring-white/10">
+            <span className="size-1.5 rounded-full bg-neon animate-pulse" />
+            Shorts 15s
+          </div>
+
+          {/* Barre d'action verticale latérale (Style TikTok / Instagram Reels) */}
+          <div className="absolute right-3 bottom-24 z-20 flex flex-col items-center gap-3">
+            {/* Bouton Like */}
+            <button
+              type="button"
+              onClick={toggleLike}
+              className="flex flex-col items-center gap-0.5 text-white transition active:scale-90"
+              aria-label="Aimer ce short"
+            >
+              <div
+                className={`grid size-10 place-items-center rounded-full backdrop-blur-md ring-1 transition ${
+                  hasLiked[story.id]
+                    ? "bg-pink-600/80 text-white ring-pink-400"
+                    : "bg-slate-950/60 text-slate-200 ring-white/20 hover:bg-slate-900/80"
+                }`}
+              >
+                <Heart className={`size-5 ${hasLiked[story.id] ? "fill-white" : ""}`} />
+              </div>
+              <span className="text-[10px] font-semibold drop-shadow">{currentLikes}</span>
+            </button>
+
+            {/* Bouton Cadeau Virtuel */}
+            <button
+              type="button"
+              onClick={() => setGiftModalOpen(true)}
+              className="flex flex-col items-center gap-0.5 text-gold transition active:scale-90"
+              aria-label="Envoyer un cadeau"
+            >
+              <div className="grid size-10 place-items-center rounded-full bg-slate-950/60 text-gold ring-1 ring-gold/40 backdrop-blur-md hover:bg-gold/20">
+                <Gift className="size-5" />
+              </div>
+              <span className="text-[10px] font-semibold drop-shadow">Cadeau</span>
+            </button>
+
+            {/* Bouton WhatsApp */}
+            <a
+              href={`https://wa.me/242069123456?text=${encodeURIComponent(
+                `Bonjour, je regarde votre Short sur Matripa concernant "${story.title}". Êtes-vous disponible ?`
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-col items-center gap-0.5 text-emerald-400 transition active:scale-90"
+              aria-label="Contacter sur WhatsApp"
+            >
+              <div className="grid size-10 place-items-center rounded-full bg-slate-950/60 text-emerald-400 ring-1 ring-emerald-500/40 backdrop-blur-md hover:bg-emerald-500/20">
+                <MessageCircle className="size-5" />
+              </div>
+              <span className="text-[10px] font-semibold drop-shadow">WhatsApp</span>
+            </a>
+
+            {/* Bouton Partage */}
+            <button
+              type="button"
+              onClick={handleShare}
+              className="flex flex-col items-center gap-0.5 text-white transition active:scale-90"
+              aria-label="Partager"
+            >
+              <div className="grid size-10 place-items-center rounded-full bg-slate-950/60 text-slate-300 ring-1 ring-white/20 backdrop-blur-md hover:bg-slate-900/80">
+                <Share2 className="size-5" />
+              </div>
+              <span className="text-[10px] font-semibold drop-shadow">
+                {copied ? "Copié !" : "Partage"}
+              </span>
+            </button>
+          </div>
+
           <div
             aria-hidden
             className="pointer-events-none absolute inset-x-0 bottom-0 h-40"
@@ -250,12 +357,12 @@ function StoryPlayer({
             }}
           />
 
-          <div className="absolute inset-x-4 bottom-4 space-y-3">
+          <div className="absolute inset-x-4 bottom-4 pr-14 space-y-2.5">
             <div>
               <p className="text-[11px] uppercase tracking-[0.18em] text-gold">
                 {categoryShort(story.category)}
               </p>
-              <p className="mt-1 font-display text-2xl font-semibold leading-tight text-white">
+              <p className="mt-0.5 font-display text-2xl font-semibold leading-tight text-white line-clamp-1">
                 {story.title}
               </p>
               <p className="text-xs text-slate-400">{cityLabel(story.city)}</p>
@@ -265,14 +372,14 @@ function StoryPlayer({
               href={`/annonces/${story.slug}`}
               className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-action text-sm font-semibold text-slate-950 shadow-[0_10px_30px_-12px_rgb(255_61_129/0.9)] transition hover:brightness-110 active:scale-[0.99]"
             >
-              Découvrir l&apos;offre
+              Voir le profil complet
               <ArrowRight className="size-4" aria-hidden />
             </Link>
           </div>
         </div>
 
         <div className="mt-3 flex items-center justify-between">
-          <PlayerControl label="Aperçu précédent" onClick={() => onNavigate(index - 1)}>
+          <PlayerControl label="Aperçu précédent (Flèche haut)" onClick={() => onNavigate(index - 1)}>
             <ChevronLeft className="size-5" aria-hidden />
           </PlayerControl>
 
@@ -283,7 +390,7 @@ function StoryPlayer({
             {muted ? <VolumeX className="size-5" aria-hidden /> : <Volume2 className="size-5" aria-hidden />}
           </PlayerControl>
 
-          <PlayerControl label="Aperçu suivant" onClick={() => onNavigate(index + 1)}>
+          <PlayerControl label="Aperçu suivant (Flèche bas)" onClick={() => onNavigate(index + 1)}>
             <ChevronRight className="size-5" aria-hidden />
           </PlayerControl>
         </div>
@@ -298,6 +405,13 @@ function StoryPlayer({
       >
         <X className="size-5" aria-hidden />
       </button>
+
+      {/* Modale de cadeaux virtuels */}
+      <VirtualGiftsModal
+        listingTitle={story.title}
+        isOpen={giftModalOpen}
+        onClose={() => setGiftModalOpen(false)}
+      />
     </div>
   );
 }

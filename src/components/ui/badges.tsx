@@ -142,3 +142,45 @@ export function GlassTag({
     </span>
   );
 }
+
+/** Badge signalant une annonce boostée (priorité d'affichage). */
+export function BoostBadge({ size = "sm", className }: { size?: BadgeSize; className?: string }) {
+  return (
+    <span
+      className={cx(
+        "relative inline-flex select-none items-center rounded-full font-semibold uppercase tracking-[0.1em] text-white",
+        "bg-gradient-to-r from-pink-600 via-neon to-purple-600",
+        "shadow-[0_0_16px_rgb(255_61_129/0.6)] ring-1 ring-white/30",
+        sizes[size],
+        className,
+      )}
+    >
+      <span className="size-1.5 mr-0.5 rounded-full bg-white animate-ping" />
+      Boosté
+    </span>
+  );
+}
+
+/** Badge attestant de l'authenticité certifiée par selfie vidéo. */
+export function VideoVerifiedBadge({
+  size = "sm",
+  className,
+}: {
+  size?: BadgeSize;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cx(
+        "inline-flex select-none items-center rounded-full",
+        "border border-cyan-400/35 bg-cyan-950/60 font-medium text-cyan-200 backdrop-blur-md",
+        "shadow-[0_0_12px_rgb(34_211_238/0.25)]",
+        sizes[size],
+        className,
+      )}
+    >
+      <BadgeCheck className={cx(icon[size], "shrink-0 text-cyan-400")} aria-hidden />
+      Selfie Vérifié
+    </span>
+  );
+}

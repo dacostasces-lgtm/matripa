@@ -14,13 +14,17 @@ import {
 
 import { ListingCard } from "@/components/listings/ListingCard";
 import { ListingMedia } from "@/components/listings/ListingMedia";
+import { PrivateGallery } from "@/components/listings/PrivateGallery";
 import { StickyActionBar } from "@/components/listings/StickyActionBar";
 import { VipPassButton } from "@/components/listings/VipPassButton";
+import { WhatsAppDirectButton } from "@/components/listings/WhatsAppDirectButton";
 import {
   AvailableNowPill,
+  BoostBadge,
   GlassTag,
   VerifiedBadge,
   VideoBadge,
+  VideoVerifiedBadge,
   VipBadge,
 } from "@/components/ui/badges";
 import { createPublicClient } from "@/lib/supabase/public";
@@ -127,6 +131,14 @@ export default async function ListingDetailPage({ params }: DetailPageProps) {
               <p className="whitespace-pre-line text-pretty leading-relaxed text-slate-300">
                 {listing.description}
               </p>
+            </Section>
+
+            {/* Galerie privée avec verrouillage et micro-paiement */}
+            <Section title="Galerie Privée & Médias Exclusifs">
+              <PrivateGallery
+                listingTitle={listing.title}
+                items={listing.private_media}
+              />
             </Section>
 
             <Section title="Profil">
@@ -242,6 +254,7 @@ export default async function ListingDetailPage({ params }: DetailPageProps) {
         listingTitle={listing.title}
         priceXaf={listing.price_xaf}
         priceUnit={listing.price_unit}
+        whatsappPhone={listing.whatsapp_phone}
       />
     </main>
   );
@@ -250,11 +263,19 @@ export default async function ListingDetailPage({ params }: DetailPageProps) {
 /* -------------------------------------------------------------------------- */
 
 function Header({ listing }: { listing: Listing }) {
+  const isBoosted = listing.boosted_until
+    ? new Date(listing.boosted_until).getTime() > Date.now()
+    : false;
+
   return (
     <header className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
+        {isBoosted && <BoostBadge size="md" />}
         {listing.is_vip && <VipBadge size="md" />}
-        {listing.is_verified && <VerifiedBadge size="md" label="Compte certifié" />}
+        {listing.is_video_verified && <VideoVerifiedBadge size="md" />}
+        {!listing.is_video_verified && listing.is_verified && (
+          <VerifiedBadge size="md" label="Compte certifié" />
+        )}
         {listing.video_url && <VideoBadge size="md" />}
         {listing.is_available_now && <AvailableNowPill />}
       </div>
@@ -306,12 +327,19 @@ function BookingPanel({ listing }: { listing: Listing }) {
         </p>
       </div>
 
+      {/* WhatsApp direct instantané */}
+      <WhatsAppDirectButton
+        phone={listing.whatsapp_phone}
+        listingTitle={listing.title}
+        city={listing.city}
+      />
+
       <Link
         href={`/demande/${listing.slug}`}
         className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-action text-sm font-semibold text-slate-950 shadow-[0_8px_30px_-10px_rgb(233_200_119/0.55)] transition hover:brightness-110 active:scale-[0.99]"
       >
         <MessageCircle className="size-4" aria-hidden />
-        Contacter / Effectuer une demande
+        Effectuer une demande formelle
       </Link>
 
       <VipPassButton
@@ -322,8 +350,8 @@ function BookingPanel({ listing }: { listing: Listing }) {
       />
 
       <p className="text-center text-xs leading-relaxed text-slate-500">
-        Aucun paiement n&apos;est prélevé à cette étape. Un conseiller Matripa confirme la
-        disponibilité sous 24 h.
+        Discrétion totale garantie. Vos coordonnées ne sont transmises qu&apos;après confirmation
+        mutuelle.
       </p>
     </div>
   );

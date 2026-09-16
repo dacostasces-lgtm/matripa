@@ -3,6 +3,8 @@ import { Cormorant_Garamond, Inter } from "next/font/google";
 
 import { SiteFooter } from "@/components/legal/SiteFooter";
 import { ServiceWorkerRegistration } from "@/components/pwa/ServiceWorkerRegistration";
+import { EmergencyDiscretionButton } from "@/components/ui/EmergencyDiscretionButton";
+import { NavigationBar } from "@/components/ui/NavigationBar";
 
 import "./globals.css";
 
@@ -53,9 +55,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fr" className={`${inter.variable} ${cormorant.variable}`}>
       <body className="bg-surface font-sans text-slate-100 antialiased">
-        {children}
+        <NavigationBar />
+{children}
         <SiteFooter />
         <ServiceWorkerRegistration />
+        <EmergencyDiscretionButton />
       </body>
     </html>
   );

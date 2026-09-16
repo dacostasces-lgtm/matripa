@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { MapPin, Star } from "lucide-react";
 
-import { VerifiedBadge, VideoBadge, VipBadge } from "@/components/ui/badges";
+import { BoostBadge, VerifiedBadge, VideoBadge, VideoVerifiedBadge, VipBadge } from "@/components/ui/badges";
 import { cx, formatRating, formatXAF, priceUnitLabel } from "@/lib/format";
 import { cityLabel, type ListingCardData } from "@/types/listing";
 
@@ -44,7 +44,11 @@ export function ListingCard({ listing, priority = false, index = 0, className }:
     is_verified,
     is_available_now,
     video_url,
+    boosted_until,
+    is_video_verified,
   } = listing;
+
+  const isBoosted = boosted_until ? new Date(boosted_until).getTime() > Date.now() : false;
 
   return (
     <Link
@@ -60,9 +64,10 @@ export function ListingCard({ listing, priority = false, index = 0, className }:
       <article
         className={cx(
           "relative aspect-[3/4] overflow-hidden rounded-2xl",
-          "border border-white/10 bg-slate-900/60 backdrop-blur-xl",
-          "shadow-[0_10px_36px_-16px_rgb(0_0_0/0.95)]",
-          "transition duration-500 ease-out",
+          "bg-slate-900/60 backdrop-blur-xl transition duration-500 ease-out",
+          isBoosted
+            ? "border-2 border-neon/70 shadow-[0_0_30px_-6px_rgb(255_61_129/0.6)] group-hover:border-neon"
+            : "border border-white/10 shadow-[0_10px_36px_-16px_rgb(0_0_0/0.95)]",
           "group-hover:-translate-y-1",
           // L'or n'apparaît qu'au survol : la grille au repos reste sobre.
           is_vip ? "group-hover:border-gold/45" : "group-hover:border-white/25",
@@ -93,8 +98,10 @@ export function ListingCard({ listing, priority = false, index = 0, className }:
         {/* Badges flottants */}
         <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
           <div className="flex flex-col items-start gap-1.5">
+            {isBoosted && <BoostBadge />}
             {is_vip && <VipBadge />}
-            {is_verified && <VerifiedBadge />}
+            {is_video_verified && <VideoVerifiedBadge />}
+            {!is_video_verified && is_verified && <VerifiedBadge />}
           </div>
           {video_url && (
             <VideoBadge

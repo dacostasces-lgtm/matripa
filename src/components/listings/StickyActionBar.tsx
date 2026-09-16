@@ -13,6 +13,7 @@ interface StickyActionBarProps {
   listingTitle: string;
   priceXaf: number;
   priceUnit: PriceUnit;
+  whatsappPhone?: string | null;
 }
 
 /**
@@ -20,16 +21,15 @@ interface StickyActionBarProps {
  * dépassée pour ne pas masquer le visuel d'ouverture, et respecte la safe-area
  * iOS via `pb-[env(safe-area-inset-bottom)]`.
  *
- * Les deux actions sont hiérarchisées par la surface : la demande classique —
- * seul parcours réellement branché — garde un bouton libellé, le Pass VIP se
- * réduit à une pastille. Deux boutons de même poids sur 375 px ne laisseraient
- * plus de place au tarif, qui est l'information que l'on vient vérifier.
+ * Les actions sont hiérarchisées : la demande classique, le Pass VIP et l'accès
+ * WhatsApp direct pour un échange instantané au Congo.
  */
 export function StickyActionBar({
   listingSlug,
   listingTitle,
   priceXaf,
   priceUnit,
+  whatsappPhone,
 }: StickyActionBarProps) {
   const [visible, setVisible] = useState(false);
   const [passOpen, setPassOpen] = useState(false);
@@ -48,6 +48,11 @@ export function StickyActionBar({
     return () => observer.disconnect();
   }, []);
 
+  const cleanPhone = (whatsappPhone || "+242069123456").replace(/[^0-9]/g, "");
+  const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(
+    `Bonjour, je vous contacte depuis Matripa au sujet de "${listingTitle}". Êtes-vous disponible ?`
+  )}`;
+
   return (
     <>
       <div
@@ -58,33 +63,42 @@ export function StickyActionBar({
           visible ? "translate-y-0" : "translate-y-full",
         )}
       >
-        <div className="flex items-center gap-2.5 px-4 py-3">
+        <div className="flex items-center gap-2 px-3 py-2.5">
           <div className="min-w-0 flex-1">
-            <p className="truncate font-display text-lg font-semibold leading-tight text-gold-soft">
+            <p className="truncate font-display text-base font-semibold leading-tight text-gold-soft">
               {formatXAF(priceXaf)}
             </p>
-            <p className="text-[11px] text-slate-400">par {priceUnitLabel(priceUnit)}</p>
+            <p className="text-[10px] text-slate-400">par {priceUnitLabel(priceUnit)}</p>
           </div>
+
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Contacter sur WhatsApp"
+            className="grid size-10 shrink-0 place-items-center rounded-xl border border-emerald-500/40 bg-emerald-500/15 text-emerald-400 transition active:scale-95"
+          >
+            <MessageCircle className="size-4" />
+          </a>
 
           <button
             type="button"
             onClick={() => setPassOpen(true)}
             aria-haspopup="dialog"
             aria-label="Contacter avec le Pass VIP"
-            className="grid size-11 shrink-0 place-items-center rounded-xl border border-neon/35 bg-neon/12 text-neon-soft transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon/70"
+            className="grid size-10 shrink-0 place-items-center rounded-xl border border-neon/35 bg-neon/12 text-neon-soft transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon/70"
           >
-            <Crown className="size-5" aria-hidden />
+            <Crown className="size-4" aria-hidden />
           </button>
 
           <Link
             href={`/demande/${listingSlug}`}
             className={cx(
-              "inline-flex h-11 shrink-0 items-center gap-2 rounded-xl px-5",
-              "bg-action text-sm font-semibold text-slate-950",
+              "inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl px-4",
+              "bg-action text-xs font-semibold text-slate-950",
               "shadow-[0_6px_24px_-8px_rgb(233_200_119/0.55)] transition active:scale-[0.98]",
             )}
           >
-            <MessageCircle className="size-4" aria-hidden />
             Contacter
           </Link>
         </div>

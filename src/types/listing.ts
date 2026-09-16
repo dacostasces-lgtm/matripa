@@ -165,8 +165,45 @@ export type Listing = {
   languages: string[];
   availability: string[];
 
+  /** Identifiant du propriétaire (compte partenaire / membre). */
+  user_id?: string;
+  /** Expiration du boost pour priorité d'affichage. */
+  boosted_until?: string | null;
+  /** Numéro WhatsApp direct au format international ex: "+242061234567". */
+  whatsapp_phone?: string | null;
+  /** Badge spécifique vérifié par selfie vidéo. */
+  is_video_verified?: boolean;
+  /** Galerie de photos et vidéos privées verrouillées. */
+  private_media?: PrivateMediaItem[];
+
   created_at: string;
 };
+
+export interface PrivateMediaItem {
+  id: string;
+  listing_id: string;
+  type: "image" | "video";
+  preview_blur_url: string;
+  full_url: string;
+  price_xaf: number;
+  is_locked: boolean;
+}
+
+export interface VirtualGift {
+  id: string;
+  name: string;
+  emoji: string;
+  amount_xaf: number;
+  description: string;
+}
+
+export interface BoostOption {
+  id: "boost_24h" | "boost_7d";
+  duration_hours: number;
+  price_xaf: number;
+  label: string;
+  badge: string;
+}
 
 export type Rate = {
   label: string;
@@ -194,10 +231,13 @@ export type ListingCardData = Pick<
   // La carte n'affiche que le badge « Vidéo 4K » : l'URL sert uniquement à
   // savoir qu'un aperçu existe, elle n'est jamais chargée à ce niveau.
   | "video_url"
->;
+> & {
+  boosted_until?: string | null;
+  is_video_verified?: boolean;
+};
 
 export const LISTING_CARD_COLUMNS =
-  "id, slug, title, highlight, city, district, category, price_xaf, price_unit, cover_url, rating, is_vip, is_verified, is_available_now, video_url";
+  "id, slug, title, highlight, city, district, category, price_xaf, price_unit, cover_url, rating, is_vip, is_verified, is_available_now, video_url, boosted_until, is_video_verified";
 
 /* -------------------------------------------------------------------------- */
 /*                              Aperçus vidéo                                 */
