@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Crown, MapPin, ShieldCheck, Trash2 } from "lucide-react";
 
 import { removeReview, setCertification } from "@/app/actions/admin";
+import { AdminReportsSection } from "@/components/reports/AdminReportsSection";
 import { AdminVerificationSection } from "@/components/verification/AdminVerificationSection";
 import { createClient } from "@/lib/supabase/server";
 import { cx, formatXAF, priceUnitLabel } from "@/lib/format";
@@ -87,6 +88,8 @@ export default async function AdminPage({
             « Certifié » découle de la vérification d&apos;identité du compte.
           </p>
         </header>
+
+        <AdminReportsSection />
 
         <AdminVerificationSection page={verifiedPage} />
 
