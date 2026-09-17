@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   CalendarCheck,
   Check,
+  Flag,
   Languages,
   MapPin,
   MessageCircle,
@@ -214,6 +215,16 @@ export default async function ListingDetailPage({ params }: DetailPageProps) {
             <Section title={`Avis${listing.reviews_count > 0 ? ` (${listing.reviews_count})` : ""}`}>
               <ReviewList reviews={reviews} />
             </Section>
+
+            <p>
+              <Link
+                href={`/signaler/${encodeURIComponent(listing.slug)}`}
+                className="inline-flex items-center gap-1.5 text-sm text-slate-500 underline-offset-4 transition hover:text-slate-300 hover:underline"
+              >
+                <Flag className="size-3.5" aria-hidden />
+                Signaler ce profil
+              </Link>
+            </p>
           </div>
 
           {/* Panneau de mise en relation : sticky sur desktop, remplacé par le

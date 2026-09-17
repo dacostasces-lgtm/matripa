@@ -24,6 +24,7 @@ export const config = {
     "/admin/:path*",
     "/mes-demandes/:path*",
     "/compte/:path*",
+    "/signaler/:path*",
     "/mot-de-passe",
     "/connexion",
   ],
