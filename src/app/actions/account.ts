@@ -5,6 +5,7 @@ import { revalidateTag } from "next/cache";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { deleteUserVerificationFiles } from "@/lib/verification-storage";
 import { LISTINGS_TAG } from "@/lib/listings";
 import type { AuthFormState } from "@/lib/auth-form";
 
@@ -45,6 +46,12 @@ export async function deleteMyAccount(
   // `deleteUser` exige la clé service_role : c'est le seul endroit du parcours
   // utilisateur qui l'emprunte, et l'identité supprimée est strictement celle
   // de la session en cours.
+  // La cascade SQL supprime les demandes de vérification, pas les fichiers du
+  // bucket. On s'arrête plutôt que de laisser une pièce d'identité orpheline.
+  if (!(await deleteUserVerificationFiles(user.id))) {
+    return { status: "error", message: "La suppression a échoué. Réessayez dans un instant." };
+  }
+
   const admin = createAdminClient();
   const { error } = await admin.auth.admin.deleteUser(user.id);
 
