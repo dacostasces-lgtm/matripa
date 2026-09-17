@@ -13,17 +13,17 @@ export interface RequestNotification {
 }
 
 /**
- * Envoi de l'alerte « nouvelle demande » au partenaire.
- *
- * Implémenté sur l'API HTTP de Resend pour éviter une dépendance
- * supplémentaire. Si la clé n'est pas configurée, on journalise et on retourne
- * `false` sans lever : une notification manquée ne doit jamais faire échouer
- * l'enregistrement de la demande, qui est déjà en base à ce stade.
+ * Envoi via l'API HTTP de Resend, sans dépendance supplémentaire. Si la clé
+ * n'est pas configurée, on journalise et on retourne `false` sans lever : une
+ * notification manquée ne doit jamais faire échouer l'enregistrement qui l'a
+ * déclenchée, déjà en base à ce stade.
  */
-export async function sendRequestNotification(
-  to: string,
-  notification: RequestNotification,
-): Promise<boolean> {
+async function sendEmail(message: {
+  to: string | string[];
+  subject: string;
+  html: string;
+  replyTo?: string;
+}): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.NOTIFY_EMAIL_FROM;
 
@@ -41,10 +41,10 @@ export async function sendRequestNotification(
       },
       body: JSON.stringify({
         from,
-        to,
-        subject: `Nouvelle demande — ${notification.listingTitle}`,
-        html: renderEmail(notification),
-        reply_to: notification.email ?? undefined,
+        to: message.to,
+        subject: message.subject,
+        html: message.html,
+        reply_to: message.replyTo,
       }),
     });
 
@@ -57,6 +57,39 @@ export async function sendRequestNotification(
     console.error("[notifications] send failed", error);
     return false;
   }
+}
+
+/** Alerte « nouvelle demande » au partenaire. */
+export async function sendRequestNotification(
+  to: string,
+  notification: RequestNotification,
+): Promise<boolean> {
+  return sendEmail({
+    to,
+    subject: `Nouvelle demande — ${notification.listingTitle}`,
+    html: renderEmail(notification),
+    replyTo: notification.email ?? undefined,
+  });
+}
+
+export type ReportAlert = {
+  listingTitle: string;
+  city: string;
+  reasonLabel: string;
+  reportedAt: string;
+  adminUrl: string;
+};
+
+/**
+ * Alerte à l'équipe pour un signalement urgent. Volontairement minimale : ni
+ * l'identité du signaleur ni ses précisions ne quittent l'administration.
+ */
+export async function sendReportAlert(to: string[], alert: ReportAlert): Promise<boolean> {
+  return sendEmail({
+    to,
+    subject: `Signalement urgent — ${alert.reasonLabel}`,
+    html: renderReportAlert(alert),
+  });
 }
 
 /** Échappement HTML : le contenu provient d'une saisie utilisateur. */
@@ -105,5 +138,34 @@ function renderEmail(n: RequestNotification): string {
   <p style="margin:24px 0 0;font-size:12px;color:#a1a1aa;">
     Recontactez le client sous 24 h pour maintenir votre statut de partenaire vérifié.
   </p>
+</div>`.trim();
+}
+
+function renderReportAlert(alert: ReportAlert): string {
+  const reportedAt = new Date(alert.reportedAt).toLocaleString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Africa/Brazzaville",
+  });
+
+  return `
+<div style="font-family:system-ui,-apple-system,sans-serif;max-width:560px;margin:0 auto;padding:24px;">
+  <p style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#a1a1aa;margin:0 0 4px;">Matripa · modération</p>
+  <h1 style="font-size:20px;color:#b91c1c;margin:0 0 16px;">Signalement urgent</h1>
+  <p style="margin:0 0 16px;font-size:14px;color:#3f3f46;">
+    Le profil a été masqué par précaution. Il attend une décision de l'équipe.
+  </p>
+  <table style="border-collapse:collapse;width:100%;margin-bottom:20px;">
+    <tr><td style="padding:6px 12px 6px 0;color:#71717a;font-size:13px;">Motif</td><td style="padding:6px 0;color:#18181b;font-size:14px;font-weight:600;">${escapeHtml(alert.reasonLabel)}</td></tr>
+    <tr><td style="padding:6px 12px 6px 0;color:#71717a;font-size:13px;">Profil</td><td style="padding:6px 0;color:#18181b;font-size:14px;">${escapeHtml(alert.listingTitle)}</td></tr>
+    <tr><td style="padding:6px 12px 6px 0;color:#71717a;font-size:13px;">Ville</td><td style="padding:6px 0;color:#18181b;font-size:14px;">${escapeHtml(alert.city)}</td></tr>
+    <tr><td style="padding:6px 12px 6px 0;color:#71717a;font-size:13px;">Reçu le</td><td style="padding:6px 0;color:#18181b;font-size:14px;">${escapeHtml(reportedAt)}</td></tr>
+  </table>
+  <a href="${escapeHtml(alert.adminUrl)}"
+     style="display:inline-block;background:#18181b;color:#fff;text-decoration:none;padding:11px 20px;border-radius:10px;font-size:14px;font-weight:600;">
+    Ouvrir l'administration
+  </a>
 </div>`.trim();
 }
