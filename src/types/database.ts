@@ -5,6 +5,7 @@ import type {
   VerificationRejection,
   VerificationStatus,
 } from "./verification";
+import type { ReportDecision, ReportReason, ReportStatus } from "./reports";
 
 export type ListingStatus = "draft" | "published" | "archived";
 export type RequestStatus = "pending" | "contacted" | "confirmed" | "cancelled";
@@ -53,6 +54,49 @@ export type VerificationRequestRow = {
   created_at: string;
 };
 
+export type ListingReportRow = {
+  id: string;
+  listing_id: string | null;
+  owner_id: string | null;
+  reporter_id: string | null;
+  reason: ReportReason;
+  is_urgent: boolean;
+  details: string | null;
+  listing_title_snapshot: string | null;
+  listing_description_snapshot: string | null;
+  listing_cover_url_snapshot: string | null;
+  status: ReportStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  resolution_note: string | null;
+  created_at: string;
+};
+
+/** Ligne renvoyée par `admin_list_open_reports`. */
+export type OpenReportRow = {
+  id: string;
+  reason: ReportReason;
+  is_urgent: boolean;
+  details: string | null;
+  created_at: string;
+  reporter_id: string | null;
+  owner_id: string | null;
+  listing_id: string | null;
+  listing_title: string | null;
+  listing_city: string | null;
+  listing_cover_url: string | null;
+  listing_description: string | null;
+  listing_status: ListingStatus | null;
+  listing_suspended_at: string | null;
+  listing_is_verified: boolean | null;
+  listing_grace_until: string | null;
+  open_reports_on_listing: number;
+  /** Contenu du profil au moment du signalement : le partenaire a pu le modifier depuis. */
+  snapshot_title: string | null;
+  snapshot_description: string | null;
+  snapshot_cover_url: string | null;
+};
+
 /**
  * Colonnes présentes en base mais absentes du modèle de domaine : elles
  * servent au filtrage/à la recherche, jamais à l'affichage.
@@ -62,6 +106,8 @@ export type ListingRow = Listing & {
   owner_id: string | null;
   /** Fin du délai de grâce d'une annonce publiée avant la vérification obligatoire. */
   verification_grace_until: string | null;
+  /** Renseignée par un signalement urgent ou une décision de retrait ; masque le profil. */
+  suspended_at: string | null;
   /** Colonne générée (tsvector) alimentant la recherche plein texte. */
   search_vector: string | null;
 };
@@ -166,12 +212,13 @@ export interface Database {
           review_id: string | null;
           listing_id: string | null;
           verification_id: string | null;
-          action: "remove_review" | VerificationDecision;
+          report_id: string | null;
+          action: "remove_review" | VerificationDecision | `report_${ReportDecision}`;
           moderator_id: string | null;
           reason: string | null;
           created_at: string;
         };
-        // Écrit exclusivement par `moderate_review` et `review_verification`.
+        // Écrit exclusivement par moderate_review, review_verification et review_report.
         Insert: never;
         Update: never;
         Relationships: [];
@@ -180,6 +227,26 @@ export interface Database {
         Row: VerificationRequestRow;
         // Écritures réservées aux fonctions `start_verification`,
         // `submit_verification` et `review_verification`.
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      listing_reports: {
+        Row: ListingReportRow;
+        // Écritures réservées à `submit_report` et `review_report` ; le
+        // signaleur ne lit que id, listing_id, reason, details, created_at.
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      verification_blocks: {
+        // Lue avec service_role par l'administration (état du propriétaire).
+        Row: {
+          user_id: string;
+          verification_id: string | null;
+          blocked_by: string | null;
+          created_at: string;
+        };
         Insert: never;
         Update: never;
         Relationships: [];
@@ -255,6 +322,15 @@ export interface Database {
         Returns: string | null;
       };
       clear_verification_video: { Args: { p_id: string }; Returns: undefined };
+      submit_report: {
+        Args: { p_listing_id: string; p_reason: ReportReason; p_details: string | null };
+        Returns: { id: string; is_urgent: boolean; listing_title: string; listing_city: string }[];
+      };
+      review_report: {
+        Args: { p_report_id: string; p_decision: ReportDecision; p_note?: string | null };
+        Returns: undefined;
+      };
+      admin_list_open_reports: { Args: Record<string, never>; Returns: OpenReportRow[] };
     };
     Enums: {
       listing_category: "categorie-a" | "categorie-b" | "categorie-c";
@@ -267,6 +343,8 @@ export interface Database {
       identity_verification_status: VerificationStatus;
       identity_document_type: VerificationDocument;
       identity_rejection_reason: VerificationRejection;
+      report_reason: ReportReason;
+      report_status: ReportStatus;
     };
     CompositeTypes: Record<never, never>;
   };
