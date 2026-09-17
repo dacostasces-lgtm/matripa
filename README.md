@@ -25,8 +25,8 @@ Basculer `.env.local` sur le bloc « stack locale » commenté en fin de fichier
 | Commande | Effet |
 |---|---|
 | `npm run check` | `tsc --noEmit` + tests unitaires |
-| `npm test` | Vitest (57 tests, logique pure) |
-| `npm run test:db` | pgTAP (84 tests de sécurité, nécessite `supabase start`) |
+| `npm test` | Vitest (67 tests, logique pure) |
+| `npm run test:db` | pgTAP (90 tests de sécurité, nécessite `supabase start`) |
 | `npm run test:e2e` | Playwright (30 parcours, nécessite `supabase start`) |
 | `npm run build` | Build de production |
 
@@ -49,7 +49,7 @@ src/
     partenaire/                  Tableau de bord, création, édition
     partenaire/verification/     Vérification d'identité par selfie vidéo
     mes-demandes/                Suivi client et dépôt d'avis
-    admin/                       Certification (Vérifié / VIP)
+    admin/                       Vérification d'identité, VIP, modération
     api/webhooks/new-request/    Notification déclenchée par pg_net
     api/webhooks/pawapay/        Callback de dépôt mobile money
     api/revalidate/              Purge du cache catalogue
@@ -64,6 +64,7 @@ e2e/                             Playwright (parcours réels, navigateur)
 supabase/
   migrations/                    0001 → 0011
   tests/security.test.sql        pgTAP
+  tests/verification.test.sql    pgTAP (vérification d'identité)
   seed.sql
 ```
 
@@ -110,8 +111,8 @@ Trois niveaux, du plus rapide au plus complet :
 
 | Niveau | Couvre | Prérequis |
 |---|---|---|
-| Vitest (57) | Logique pure : validation de l'URL, formatage, slugs | aucun |
-| pgTAP (84) | RLS, GRANT de colonne, anti-spam, cloisonnement, vérification d'identité | `supabase start` |
+| Vitest (67) | Logique pure : validation de l'URL, formatage, slugs | aucun |
+| pgTAP (90) | RLS, GRANT de colonne, anti-spam, cloisonnement, vérification d'identité | `supabase start` |
 | Playwright (30) | Parcours réels dans un navigateur | `supabase start` |
 
 Les tests de bout en bout s'exécutent **contre la stack locale, jamais contre le projet distant** : ils créent des comptes, déposent des demandes et publient des annonces. Le port `3210` et un build de production sont utilisés, pour exercer le comportement réel (cache et Server Actions compris) plutôt que celui du serveur de développement.

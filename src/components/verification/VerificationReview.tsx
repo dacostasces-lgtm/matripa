@@ -103,14 +103,14 @@ export function VerificationReview({ requestId }: { requestId: string }) {
             ))}
           </select>
           <label htmlFor={`note-${requestId}`} className="sr-only">
-            Complément
+            Message au partenaire
           </label>
           <input
             id={`note-${requestId}`}
             name="note"
             type="text"
             maxLength={300}
-            placeholder="Complément (facultatif)"
+            placeholder="Message au partenaire (facultatif)"
             // Ce champ partage le formulaire avec le bouton « Approuver » :
             // sans ce garde-fou, Entrée dans ce champ validerait implicitement
             // l'identité au lieu de ne rien faire.

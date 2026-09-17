@@ -178,15 +178,15 @@ export async function AdminVerificationSection({ page }: { page: number }) {
                 <form action={revokeVerification} className="flex flex-wrap gap-2">
                   <input type="hidden" name="request_id" value={item.id} />
                   <label htmlFor={`revoke-${item.id}`} className="sr-only">
-                    Motif de la révocation
+                    Motif de la révocation, visible par le partenaire
                   </label>
                   <input
                     id={`revoke-${item.id}`}
                     name="note"
                     required
                     maxLength={300}
-                    placeholder="Motif (obligatoire)"
-                    className="h-9 w-48 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-xs text-white placeholder:text-slate-600"
+                    placeholder="Motif, visible par le partenaire (obligatoire)"
+                    className="h-9 w-72 max-w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 text-xs text-white placeholder:text-slate-600"
                   />
                   <button
                     type="submit"
