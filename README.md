@@ -25,9 +25,9 @@ Basculer `.env.local` sur le bloc « stack locale » commenté en fin de fichier
 | Commande | Effet |
 |---|---|
 | `npm run check` | `tsc --noEmit` + tests unitaires |
-| `npm test` | Vitest (67 tests, logique pure) |
-| `npm run test:db` | pgTAP (90 tests de sécurité, nécessite `supabase start`) |
-| `npm run test:e2e` | Playwright (30 parcours, nécessite `supabase start`) |
+| `npm test` | Vitest (81 tests, logique pure) |
+| `npm run test:db` | pgTAP (139 tests de sécurité, nécessite `supabase start`) |
+| `npm run test:e2e` | Playwright (32 parcours, nécessite `supabase start`) |
 | `npm run build` | Build de production |
 
 ---
@@ -40,6 +40,7 @@ src/
     page.tsx                     Fil d'annonces (filtres dans l'URL)
     annonces/[slug]/             Fiche publique
     demande/[slug]/              Formulaire de mise en relation
+    signaler/[slug]/             Signalement d'un profil (compte connecté)
     connexion/                   Connexion et inscription
     mot-de-passe-oublie/         Demande de lien de réinitialisation
     mot-de-passe/                Saisie du nouveau mot de passe
@@ -62,9 +63,10 @@ src/
   types/{listing,database}.ts
 e2e/                             Playwright (parcours réels, navigateur)
 supabase/
-  migrations/                    0001 → 0011
+  migrations/                    0001 → 0012
   tests/security.test.sql        pgTAP
   tests/verification.test.sql    pgTAP (vérification d'identité)
+  tests/reports.test.sql         pgTAP (signalements)
   seed.sql
 ```
 
@@ -100,6 +102,8 @@ Concrètement :
 | `rating`, `reviews_count` | aucun rôle client — recalculés par le trigger `reviews_recompute_rating` |
 | `requests` (insertion) | personne en direct → `submit_request()`, qui applique disponibilité + anti-spam |
 | `reviews` (insertion) | personne en direct → `submit_review()`, qui exige une demande **confirmée** appartenant à l'auteur |
+| `listing_reports` | personne en direct → `submit_report()` ; décisions → `review_report()` (admins) ; lecture admin → `admin_list_open_reports()` ; le signaleur ne relit que `id, listing_id, reason, details, created_at` |
+| `suspended_at` | aucun rôle client — posée par un signalement urgent ou un retrait, levée par une décision « infondé » |
 
 Les tests pgTAP (`security.test.sql`, `verification.test.sql`) verrouillent ces propriétés. **Les lancer après toute migration.**
 
@@ -111,9 +115,9 @@ Trois niveaux, du plus rapide au plus complet :
 
 | Niveau | Couvre | Prérequis |
 |---|---|---|
-| Vitest (67) | Logique pure : validation de l'URL, formatage, slugs | aucun |
-| pgTAP (90) | RLS, GRANT de colonne, anti-spam, cloisonnement, vérification d'identité | `supabase start` |
-| Playwright (30) | Parcours réels dans un navigateur | `supabase start` |
+| Vitest (81) | Logique pure : validation de l'URL, formatage, slugs | aucun |
+| pgTAP (139) | RLS, GRANT de colonne, anti-spam, cloisonnement, vérification d'identité, signalements | `supabase start` |
+| Playwright (32) | Parcours réels dans un navigateur | `supabase start` |
 
 Les tests de bout en bout s'exécutent **contre la stack locale, jamais contre le projet distant** : ils créent des comptes, déposent des demandes et publient des annonces. Le port `3210` et un build de production sont utilisés, pour exercer le comportement réel (cache et Server Actions compris) plutôt que celui du serveur de développement.
 
@@ -250,6 +254,10 @@ Le halo d'ambiance de l'accueil est resté invisible pour cette raison, sans qu'
 
 `public/sw.js` ne traite que les **GET same-origin**. Les Server Actions sont des POST vers la même URL et doivent passer intactes ; les payloads RSC (`?_rsc=`) ne sont jamais cachés — en servir un périmé casse la navigation.
 
+### 12. Un écran de succès ne survit pas à une action qui masque la page
+
+Après une Server Action, Next rafraîchit la route appelante. Le signalement urgent suspend le profil dans la même transaction : au rafraîchissement, `fetchListingBySlug` ne voit plus rien et `notFound()` remplace la confirmation. La confirmation vit donc sur sa propre route, `/signaler/merci`, vers laquelle l'action redirige.
+
 ---
 
 ## Avis et confiance
@@ -300,6 +308,42 @@ Le partenaire peut alors recommencer une vérification depuis `/partenaire/verif
 
 ---
 
+## Signalements
+
+Un compte connecté peut signaler un profil visible depuis sa fiche (« Signaler ce profil » → `/signaler/[slug]`). Cinq motifs : personne mineure présumée, contrainte ou exploitation, faux profil ou photos volées, arnaque, autre.
+
+### Ce qui se passe
+
+- **Motif urgent** (mineure, contrainte) : `submit_report` renseigne `listings.suspended_at` dans la même transaction. Le profil disparaît du catalogue — la policy `listings_public_read` exige `suspended_at is null` — et `submit_request` comme `create_payment` le refusent. L'équipe reçoit un e-mail (`REPORT_ALERT_EMAILS`), sans identité du signaleur ni précisions.
+- **Autres motifs** : aucun effet immédiat ; le signalement attend dans `/admin`.
+- **Pas de suivi** : le signaleur voit une confirmation, puis rien. Les GRANT de colonne l'empêchent de lire `status` et la note de décision.
+
+### Anti-abus
+
+Un signalement ouvert par compte et par profil, cinq par heure par compte, jamais sur son propre profil. Chaque décision est journalisée dans `moderation_log`. Un compte ne peut pas signaler deux fois le même profil : un signalement déjà ouvert ou déjà jugé infondé vaut refus, ce qui empêche de re-suspendre un profil après chaque décision.
+
+**Ce que l'équipe examine est figé au signalement.** Le titre, la description et la couverture sont recopiés dans le signalement au moment de l'envoi : un partenaire qui modifie son profil suspendu pendant l'examen ne change pas ce que l'administrateur voit. Le titre courant est affiché à côté lorsqu'il diffère.
+
+**Le profil suspendu ne peut pas être supprimé** (`listings_owner_delete` exige `suspended_at is null`), ni recevoir de demande ou de paiement. Un administrateur ne peut pas trancher un signalement visant son propre profil.
+
+### Décisions (`/admin`, en tête)
+
+| Décision | Effet |
+|---|---|
+| Signalement infondé | Clos ; la suspension tombe si plus aucun autre signalement urgent n'est ouvert sur ce profil et que l'annonce n'est ni archivée ni déjà confirmée |
+| Retirer le profil (note obligatoire) | Profil archivé et suspendu définitivement ; autres signalements du profil clos |
+| Personne mineure : bloquer le compte | Tous les profils archivés et suspendus, compte inscrit dans `verification_blocks`, vérification révoquée ou rejetée, signalements du compte clos |
+
+Le partenaire voit « Suspendu » sur son tableau de bord, sans motif ni signaleur. Republier ne lève pas la suspension : `suspended_at` est hors de ses droits d'écriture.
+
+La confirmation du signaleur vit sur `/signaler/merci` : un motif urgent masque le profil aussitôt, donc la page de signalement elle-même devient introuvable.
+
+### Configuration
+
+`REPORT_ALERT_EMAILS` : adresses de l'équipe, séparées par des virgules. Sans elle (ou sans `RESEND_API_KEY` / `NOTIFY_EMAIL_FROM`), le signalement est enregistré et un avertissement est journalisé.
+
+---
+
 ## Cache
 
 | Route | Rendu | Cache |
@@ -340,7 +384,7 @@ Reste que la latence vers l'edge Vercel depuis l'Afrique centrale est élevée e
 
 1. `supabase db push` (ou appliquer `migrations/` puis `seed.sql`)
 
-   La migration 0011 crée le bucket privé `verifications` et place toutes les annonces publiées en délai de grâce de 7 jours.
+   La migration 0011 crée le bucket privé `verifications` et place toutes les annonces publiées en délai de grâce de 7 jours. La migration 0012 crée la table des signalements et ajoute `listings.suspended_at`. Renseigner `REPORT_ALERT_EMAILS`.
 2. Variables d'environnement — voir `.env.example`
 3. Configurer le webhook :
    ```sql
