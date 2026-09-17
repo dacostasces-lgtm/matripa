@@ -67,7 +67,7 @@ export async function AdminVerificationSection({ page }: { page: number }) {
   // Même garde que `purgeVerificationVideos` : une lecture en échec ou
   // tronquée (nombre exact supérieur aux lignes reçues) ferait compter les
   // vidéos de demandes `pending` comme abandonnées. Le bandeau est alors
-  // simplement masqué, tout comme si le listing du bucket a échoué.
+  // simplement masqué, de même quand le listing du bucket échoue.
   const pending = completeRows(pendingResult);
   const decided = completeRows(decidedResult);
   if (!pending || !decided) console.error("[admin] purge refs incomplete");
