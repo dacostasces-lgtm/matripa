@@ -171,7 +171,7 @@ export async function purgeVerificationVideos(_formData: FormData) {
   const { data: isAdmin } = await supabase.rpc("is_admin");
   if (!isAdmin) return;
 
-  const [{ data: refs }, files] = await Promise.all([
+  const [{ data: refs, error: refsError }, files] = await Promise.all([
     supabase
       .from("verification_requests")
       .select("id, status, video_path")
@@ -179,6 +179,15 @@ export async function purgeVerificationVideos(_formData: FormData) {
       .returns<VideoReference[]>(),
     listVerificationVideos(),
   ]);
+
+  // Une requête en échec (ou tronquée) ne doit jamais être lue comme
+  // « aucune demande en cours » : `planVideoPurge` traiterait alors les
+  // vidéos des demandes `pending` comme abandonnées et les supprimerait.
+  if (refsError) {
+    console.error("[admin] purge refs query failed", refsError);
+    revalidatePath("/admin");
+    return;
+  }
 
   const plan = planVideoPurge(files, refs ?? [], new Date());
 

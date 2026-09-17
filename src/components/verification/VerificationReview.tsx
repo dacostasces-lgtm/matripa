@@ -111,6 +111,12 @@ export function VerificationReview({ requestId }: { requestId: string }) {
             type="text"
             maxLength={300}
             placeholder="Complément (facultatif)"
+            // Ce champ partage le formulaire avec le bouton « Approuver » :
+            // sans ce garde-fou, Entrée dans ce champ validerait implicitement
+            // l'identité au lieu de ne rien faire.
+            onKeyDown={(event) => {
+              if (event.key === "Enter") event.preventDefault();
+            }}
             className="h-10 min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-sm text-white placeholder:text-slate-600"
           />
           <button

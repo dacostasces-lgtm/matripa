@@ -33,7 +33,7 @@ export async function AdminVerificationSection({ page }: { page: number }) {
   const supabase = await createClient();
   const from = (page - 1) * PAGE_SIZE;
 
-  const [{ data: queueData }, { data: verifiedData, count }, { data: refs }, files] = await Promise.all([
+  const [{ data: queueData }, { data: verifiedData, count }, { data: refs, error: refsError }, files] = await Promise.all([
     supabase
       .from("verification_requests")
       .select("id, user_id, document_type, submitted_at, challenge_code")
@@ -57,8 +57,11 @@ export async function AdminVerificationSection({ page }: { page: number }) {
 
   const queue = queueData ?? [];
   const verifiedAccounts = verifiedData ?? [];
-  const purge = planVideoPurge(files, refs ?? [], new Date());
-  const toPurge = purge.paths.length;
+  // Une requête en échec ne doit pas être lue comme « aucune référence » :
+  // le bandeau de purge afficherait alors à tort des demandes `pending`
+  // comme abandonnées. On masque simplement le bandeau dans ce cas.
+  if (refsError) console.error("[admin] purge refs query failed", refsError);
+  const toPurge = refsError ? 0 : planVideoPurge(files, refs ?? [], new Date()).paths.length;
 
   const userIds = [...new Set([...queue, ...verifiedAccounts].map((item) => item.user_id))];
   const admin = createAdminClient();
