@@ -109,7 +109,17 @@ export type LatestVerification = {
   rejection_reason: VerificationRejection | null;
 };
 
-export function verificationView(latest: LatestVerification | null, now: Date): VerificationView {
+/**
+ * `blocked` vient de `is_verification_blocked()` (table `verification_blocks`),
+ * pas du dernier rejet : après levée du blocage, un ancien motif
+ * `personne_mineure` ne doit plus empêcher de recommencer.
+ */
+export function verificationView(
+  latest: LatestVerification | null,
+  now: Date,
+  blocked: boolean,
+): VerificationView {
+  if (blocked) return "blocked";
   if (!latest) return "start";
 
   switch (latest.status) {
@@ -122,8 +132,7 @@ export function verificationView(latest: LatestVerification | null, now: Date): 
     case "revoked":
       return "revoked";
     case "rejected":
-      // `block_minor` enregistre un rejet motivé par la minorité et bloque le compte.
-      return latest.rejection_reason === "personne_mineure" ? "blocked" : "rejected";
+      return "rejected";
   }
 }
 

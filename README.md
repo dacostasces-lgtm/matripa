@@ -279,7 +279,7 @@ Publier un profil exige un compte **vérifié** : une personne de l'équipe a co
 
 **On garde le moins possible.** Ni numéro de pièce ni date de naissance. La vidéo est supprimée par l'API Storage juste après la décision : supprimer la ligne dans `storage.objects` laisserait le fichier en place. Si la suppression échoue, la décision reste acquise et `/admin` propose de purger.
 
-**Décision et publication sont sérialisées par compte.** `review_verification` prend un verrou consultatif exclusif sur le compte, le trigger `listings_enforce_verification` le même verrou en mode partagé avant de lire le statut. Sans cela, une annonce insérée pendant une révocation pouvait garder le badge et rester en ligne.
+**Décision et publication sont sérialisées par compte.** `review_verification` prend un verrou consultatif exclusif sur le compte ; le trigger `listings_enforce_verification` prend le même verrou en mode partagé, **à l'insertion seulement**, avant de lire le statut. Sans cela, une annonce insérée pendant une révocation pouvait hériter du badge et rester en ligne. Une mise à jour n'en a pas besoin : la décision modifie toutes les annonces du compte, une mise à jour concurrente attend donc déjà le verrou de ligne et le trigger reçoit la version écrite par la décision. Y prendre aussi le verrou consultatif, après le verrou de ligne, inverserait l'ordre suivi par `review_verification` (consultatif, puis lignes) et exposerait à un interblocage.
 
 ### Constat de minorité
 
@@ -290,6 +290,8 @@ Une révocation ne peut pas porter le motif « personne mineure » : ce constat 
 ```sql
 delete from public.verification_blocks where user_id = '<uuid>';
 ```
+
+Le partenaire peut alors recommencer une vérification depuis `/partenaire/verification`. L'interface lit le blocage dans `verification_blocks` (`is_verification_blocked()`), et non dans le motif du dernier rejet, qui reste dans l'historique.
 
 ### Suppression du compte
 

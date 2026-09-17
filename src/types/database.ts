@@ -236,6 +236,7 @@ export interface Database {
         Returns: string;
       };
       is_account_verified: { Args: { p_user_id: string }; Returns: boolean };
+      is_verification_blocked: { Args: Record<string, never>; Returns: boolean };
       start_verification: {
         Args: Record<string, never>;
         Returns: { id: string; challenge_code: string; code_expires_at: string }[];

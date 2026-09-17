@@ -104,6 +104,22 @@ alter table public.verification_blocks enable row level security;
 revoke all on public.verification_blocks from anon, authenticated;
 grant select, insert, update, delete on public.verification_blocks to service_role;
 
+-- Blocage du compte appelant. L'interface s'appuie sur cette table et non sur
+-- le dernier rejet : un motif `personne_mineure` reste dans l'historique après
+-- la levée du blocage, qui laisserait sinon le partenaire bloqué à l'écran.
+create or replace function public.is_verification_blocked()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (select 1 from public.verification_blocks where user_id = auth.uid());
+$$;
+
+revoke execute on function public.is_verification_blocked() from public, anon;
+grant execute on function public.is_verification_blocked() to authenticated;
+
 /* -------------------------------------------------------------------------- */
 /*                          Journal de modération                             */
 /* -------------------------------------------------------------------------- */
@@ -174,13 +190,20 @@ begin
     return new;
   end if;
 
-  -- Verrou consultatif partagé, à la clé du compte : `review_verification`
-  -- prend un verrou exclusif sur la même clé avant de modifier les annonces.
-  -- Attendre ici force ce trigger à repartir d'un instantané postérieur à la
-  -- décision en cours (chaque instruction PL/pgSQL prend un nouveau snapshot
-  -- après une attente), ce qui évite qu'une annonce insérée ou modifiée
-  -- pendant une révocation concurrente ne garde un badge déjà retiré.
-  if new.owner_id is not null then
+  -- Insertion : verrou consultatif partagé, à la clé du compte.
+  -- `review_verification` prend un verrou exclusif sur la même clé avant de
+  -- modifier les annonces. Attendre ici force ce trigger à repartir d'un
+  -- instantané postérieur à la décision en cours (chaque instruction PL/pgSQL
+  -- prend un nouveau snapshot après une attente), ce qui évite qu'une annonce
+  -- insérée pendant une révocation concurrente n'hérite d'un badge déjà retiré.
+  --
+  -- Mise à jour : pas de verrou consultatif. La décision met à jour toutes les
+  -- annonces du compte ; une mise à jour concurrente attend donc déjà le verrou
+  -- de ligne et ce trigger reçoit la version de la ligne écrite par la
+  -- décision. Le prendre ici, après le verrou de ligne, inverserait l'ordre
+  -- suivi par `review_verification` (consultatif, puis lignes) et exposerait à
+  -- un interblocage.
+  if tg_op = 'INSERT' and new.owner_id is not null then
     perform pg_advisory_xact_lock_shared(hashtextextended(new.owner_id::text, 0));
   end if;
 
@@ -486,6 +509,11 @@ begin
     raise exception 'not_found' using errcode = 'P0002';
   end if;
 
+  -- Personne ne statue sur sa propre vérification, pas même un administrateur.
+  if v_request.user_id = auth.uid() then
+    raise exception 'forbidden' using errcode = '42501';
+  end if;
+
   -- `block_minor` reste possible sur une demande déjà approuvée : la
   -- minorité peut être constatée après coup, pas seulement lors de l'examen
   -- initial.
@@ -600,14 +628,16 @@ on conflict (id) do update set
   file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
 
--- Dépôt dans son propre dossier uniquement. Pas de policy update ni delete :
--- le dépôt est définitif pour le client, la suppression relève de service_role.
+-- Dépôt dans son propre dossier uniquement, sous la forme
+-- `<uid>/<identifiant de demande>.<ext>` exigée par `submit_verification` :
+-- ni sous-dossier ni nom arbitraire. Pas de policy update ni delete : le
+-- dépôt est définitif pour le client, la suppression relève de service_role.
 create policy "verifications_owner_insert"
   on storage.objects for insert
   to authenticated
   with check (
     bucket_id = 'verifications'
-    and (storage.foldername(name))[1] = auth.uid()::text
+    and name ~ ('^' || auth.uid()::text || '/[0-9a-f-]{36}\.(mp4|mov|webm|3gp)$')
   );
 
 -- Lecture réservée à l'équipe, y compris pour le déposant.

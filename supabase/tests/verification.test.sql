@@ -7,7 +7,7 @@
 -- compte n'est lisible que par l'équipe, et chaque décision est tracée.
 
 begin;
-select plan(50);
+select plan(56);
 
 -- Jeu d'essai ---------------------------------------------------------------
 -- p1 : partenaire à vérifier · p2 : tiers, puis compte mineur · adm : administrateur
@@ -188,6 +188,14 @@ select throws_ok(
   '42501',
   null,
   'un compte ne peut pas déposer dans le dossier d''un autre'
+);
+
+select throws_ok(
+  $$ insert into storage.objects (bucket_id, name)
+     values ('verifications', '0a000000-0000-0000-0000-000000000001/sub/x.mp4') $$,
+  '42501',
+  null,
+  'un compte ne peut pas déposer dans un sous-dossier, même sous son propre dossier'
 );
 
 select lives_ok(
@@ -564,6 +572,59 @@ select throws_ok(
        'MTN_MOMO_COG'::payment_provider, '242065050505') $$,
   'listing_unavailable',
   'un paiement sur une annonce archivée après constat de minorité est refusé'
+);
+
+reset role;
+
+/* -------------------------------------------------------------------------- */
+/*                 Auto-examen interdit et levée du blocage                   */
+/* -------------------------------------------------------------------------- */
+
+-- Demande de l'administrateur lui-même, posée en superutilisateur.
+insert into public.verification_requests (user_id, status, challenge_code, document_type, video_path, submitted_at)
+values ('0a000000-0000-0000-0000-000000000003', 'pending', 'ADMINX', 'cni',
+        '0a000000-0000-0000-0000-000000000003/fixture.mp4', now());
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"0a000000-0000-0000-0000-000000000003","role":"authenticated"}';
+
+select throws_ok(
+  $$ select review_verification(
+       (select id from public.verification_requests
+         where user_id = '0a000000-0000-0000-0000-000000000003'), 'approve') $$,
+  '42501',
+  'forbidden',
+  'un administrateur ne peut pas statuer sur sa propre vérification'
+);
+
+set local request.jwt.claims = '{"sub":"0a000000-0000-0000-0000-000000000002","role":"authenticated"}';
+
+select ok(
+  is_verification_blocked(),
+  'un compte signalé mineur se voit bloqué'
+);
+
+set local request.jwt.claims = '{"sub":"0a000000-0000-0000-0000-000000000001","role":"authenticated"}';
+
+select ok(
+  not is_verification_blocked(),
+  'un compte non signalé ne se voit pas bloqué'
+);
+
+-- Levée du blocage telle que documentée dans le README.
+reset role;
+delete from public.verification_blocks where user_id = '0a000000-0000-0000-0000-000000000002';
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"0a000000-0000-0000-0000-000000000002","role":"authenticated"}';
+
+select ok(
+  not is_verification_blocked(),
+  'une fois la ligne de blocage supprimée, le compte ne se voit plus bloqué'
+);
+
+select lives_ok(
+  $$ select * from start_verification() $$,
+  'une fois le blocage levé, le partenaire peut recommencer la vérification'
 );
 
 reset role;

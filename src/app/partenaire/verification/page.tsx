@@ -40,15 +40,18 @@ export default async function VerificationPage({
 
   // Filtre `user_id` explicite : un administrateur lit toutes les demandes
   // (policies combinées en OU), il ne doit voir ici que la sienne.
-  const { data: latest } = await supabase
-    .from("verification_requests")
-    .select("id, status, challenge_code, code_expires_at, submitted_at, reviewed_at, rejection_reason, rejection_note")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle<Latest>();
+  const [{ data: latest }, { data: blocked }] = await Promise.all([
+    supabase
+      .from("verification_requests")
+      .select("id, status, challenge_code, code_expires_at, submitted_at, reviewed_at, rejection_reason, rejection_note")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle<Latest>(),
+    supabase.rpc("is_verification_blocked"),
+  ]);
 
-  const view = verificationView(latest ?? null, new Date());
+  const view = verificationView(latest ?? null, new Date(), blocked === true);
   const erreur = typeof params.erreur === "string" ? verificationErrorMessage(params.erreur) : null;
   const uploadedPath =
     view === "upload" && latest ? await findVerificationUpload(user.id, latest.id) : null;
@@ -80,10 +83,18 @@ export default async function VerificationPage({
 
       {(view === "start" || view === "rejected" || view === "revoked") && (
         <section className="space-y-5 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-          {view === "rejected" && reason && (
+          {view === "rejected" && (
             <div role="status" className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-              <p className="font-medium">Votre précédente vidéo n&apos;a pas pu être validée : {reason.label.toLowerCase()}.</p>
-              <p className="mt-1 text-amber-200/80">{reason.partner}</p>
+              {/* Un motif sans texte partenaire (constat de minorité, blocage
+                  depuis levé) reçoit une formulation neutre. */}
+              {reason?.partner ? (
+                <>
+                  <p className="font-medium">Votre précédente vidéo n&apos;a pas pu être validée : {reason.label.toLowerCase()}.</p>
+                  <p className="mt-1 text-amber-200/80">{reason.partner}</p>
+                </>
+              ) : (
+                <p className="font-medium">Votre précédente vérification n&apos;a pas pu être validée.</p>
+              )}
               {latest?.rejection_note && <p className="mt-1 text-amber-200/80">{latest.rejection_note}</p>}
             </div>
           )}

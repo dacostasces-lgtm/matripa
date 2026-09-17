@@ -82,23 +82,29 @@ describe("verificationView", () => {
   const base = { code_expires_at: hoursAgo(-0.25), rejection_reason: null };
 
   it("propose de commencer sans demande", () => {
-    expect(verificationView(null, NOW)).toBe("start");
+    expect(verificationView(null, NOW, false)).toBe("start");
   });
 
   it("affiche l'envoi tant que le code est valide, puis l'expiration", () => {
-    expect(verificationView({ ...base, status: "awaiting_video" }, NOW)).toBe("upload");
-    expect(verificationView({ ...base, status: "awaiting_video", code_expires_at: hoursAgo(1) }, NOW)).toBe("expired");
+    expect(verificationView({ ...base, status: "awaiting_video" }, NOW, false)).toBe("upload");
+    expect(verificationView({ ...base, status: "awaiting_video", code_expires_at: hoursAgo(1) }, NOW, false)).toBe("expired");
   });
 
   it("reflète les états terminaux", () => {
-    expect(verificationView({ ...base, status: "pending" }, NOW)).toBe("pending");
-    expect(verificationView({ ...base, status: "approved" }, NOW)).toBe("approved");
-    expect(verificationView({ ...base, status: "revoked" }, NOW)).toBe("revoked");
-    expect(verificationView({ ...base, status: "rejected", rejection_reason: "video_illisible" }, NOW)).toBe("rejected");
+    expect(verificationView({ ...base, status: "pending" }, NOW, false)).toBe("pending");
+    expect(verificationView({ ...base, status: "approved" }, NOW, false)).toBe("approved");
+    expect(verificationView({ ...base, status: "revoked" }, NOW, false)).toBe("revoked");
+    expect(verificationView({ ...base, status: "rejected", rejection_reason: "video_illisible" }, NOW, false)).toBe("rejected");
   });
 
-  it("présente un constat de minorité comme un blocage", () => {
-    expect(verificationView({ ...base, status: "rejected", rejection_reason: "personne_mineure" }, NOW)).toBe("blocked");
+  it("présente un compte bloqué comme tel, avant tout autre état", () => {
+    expect(verificationView({ ...base, status: "rejected", rejection_reason: "personne_mineure" }, NOW, true)).toBe("blocked");
+    expect(verificationView({ ...base, status: "approved" }, NOW, true)).toBe("blocked");
+    expect(verificationView(null, NOW, true)).toBe("blocked");
+  });
+
+  it("laisse recommencer après levée du blocage, malgré un ancien motif de minorité", () => {
+    expect(verificationView({ ...base, status: "rejected", rejection_reason: "personne_mineure" }, NOW, false)).toBe("rejected");
   });
 });
 
