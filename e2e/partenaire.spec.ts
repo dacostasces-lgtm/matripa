@@ -22,8 +22,8 @@ test.describe("Espace partenaire", () => {
   test("un nouveau partenaire arrive sur un tableau de bord vide", async ({ page }) => {
     await signUpPartner(page);
 
-    await expect(page.getByRole("heading", { name: "Mes offres" })).toBeVisible();
-    await expect(page.getByText("Aucune offre pour l'instant")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Mes profils" })).toBeVisible();
+    await expect(page.getByText("Aucun profil pour l'instant")).toBeVisible();
 
     // Le catalogue de démonstration ne doit pas apparaître comme sien :
     // `listings_public_read` le rendrait visible sans filtre `owner_id`.
@@ -33,7 +33,7 @@ test.describe("Espace partenaire", () => {
   test("création d'une offre, de la publication à la fiche publique", async ({ page }) => {
     await signUpPartner(page);
 
-    await page.getByRole("link", { name: "Nouvelle offre" }).click();
+    await page.getByRole("link", { name: "Nouveau profil" }).click();
     await page.waitForURL("**/partenaire/annonces/nouvelle");
 
     await page
@@ -42,21 +42,21 @@ test.describe("Espace partenaire", () => {
     await expect(page.getByText("Couverture")).toBeVisible();
 
     const titre = `Villa E2E ${Date.now().toString().slice(-6)}`;
-    await page.getByLabel("Titre de l'offre").fill(titre);
+    await page.getByLabel("Prénom et âge").fill(titre);
     await page
       .getByLabel("Description")
       .fill("Description de test suffisamment longue pour passer la validation serveur.");
     await page.getByLabel("Catégorie").selectOption("categorie-a");
-    await page.getByLabel("Type d'offre").selectOption("option_1");
+    await page.getByLabel("Formule").selectOption("option_1");
     await page.getByLabel("Type de service").selectOption("sur_place");
     await page.getByLabel("Ville").selectOption("brazzaville");
     await page.getByLabel("Tarif (FCFA)").fill("65000");
     await page.getByLabel("Langues parlées").fill("Français, Lingala");
 
-    await page.getByRole("button", { name: "Enregistrer l'offre" }).click();
+    await page.getByRole("button", { name: "Publier le profil" }).click();
 
     await page.waitForURL("**/partenaire?cree=1");
-    await expect(page.getByRole("status")).toContainText("Offre enregistrée");
+    await expect(page.getByRole("status")).toContainText("Profil enregistré");
     await expect(page.getByText(titre)).toBeVisible();
     await expect(page.getByText("En ligne")).toBeVisible();
 
@@ -70,22 +70,22 @@ test.describe("Espace partenaire", () => {
   test("dépublier retire l'offre du catalogue public", async ({ page }) => {
     await signUpPartner(page);
 
-    await page.getByRole("link", { name: "Nouvelle offre" }).click();
+    await page.getByRole("link", { name: "Nouveau profil" }).click();
     await page
       .locator('input[type="file"][accept^="image"]')
       .setInputFiles({ name: "visuel.png", mimeType: "image/png", buffer: tinyPng() });
 
     const titre = `Studio E2E ${Date.now().toString().slice(-6)}`;
-    await page.getByLabel("Titre de l'offre").fill(titre);
+    await page.getByLabel("Prénom et âge").fill(titre);
     await page
       .getByLabel("Description")
       .fill("Description de test suffisamment longue pour passer la validation serveur.");
     await page.getByLabel("Catégorie").selectOption("categorie-c");
-    await page.getByLabel("Type d'offre").selectOption("option_3");
+    await page.getByLabel("Formule").selectOption("option_3");
     await page.getByLabel("Type de service").selectOption("les_deux");
     await page.getByLabel("Ville").selectOption("dolisie");
     await page.getByLabel("Tarif (FCFA)").fill("18000");
-    await page.getByRole("button", { name: "Enregistrer l'offre" }).click();
+    await page.getByRole("button", { name: "Publier le profil" }).click();
     await page.waitForURL("**/partenaire?cree=1");
 
     await page.getByRole("button", { name: "Dépublier" }).click();
@@ -100,21 +100,21 @@ test.describe("Espace partenaire", () => {
   test("modifier une offre conserve son adresse publique", async ({ page }) => {
     await signUpPartner(page);
 
-    await page.getByRole("link", { name: "Nouvelle offre" }).click();
+    await page.getByRole("link", { name: "Nouveau profil" }).click();
     await page
       .locator('input[type="file"][accept^="image"]')
       .setInputFiles({ name: "visuel.png", mimeType: "image/png", buffer: tinyPng() });
 
-    await page.getByLabel("Titre de l'offre").fill(`Loft E2E ${Date.now().toString().slice(-6)}`);
+    await page.getByLabel("Prénom et âge").fill(`Loft E2E ${Date.now().toString().slice(-6)}`);
     await page
       .getByLabel("Description")
       .fill("Description de test suffisamment longue pour passer la validation serveur.");
     await page.getByLabel("Catégorie").selectOption("categorie-a");
-    await page.getByLabel("Type d'offre").selectOption("option_2");
+    await page.getByLabel("Formule").selectOption("option_2");
     await page.getByLabel("Type de service").selectOption("sur_place");
     await page.getByLabel("Ville").selectOption("pointe-noire");
     await page.getByLabel("Tarif (FCFA)").fill("40000");
-    await page.getByRole("button", { name: "Enregistrer l'offre" }).click();
+    await page.getByRole("button", { name: "Publier le profil" }).click();
     await page.waitForURL("**/partenaire?cree=1");
 
     const lienAvant = await page.locator('a[href^="/annonces/"]').first().getAttribute("href");
@@ -123,7 +123,7 @@ test.describe("Espace partenaire", () => {
     await page.waitForURL("**/modifier");
 
     const nouveauTitre = `Loft renommé ${Date.now().toString().slice(-6)}`;
-    await page.getByLabel("Titre de l'offre").fill(nouveauTitre);
+    await page.getByLabel("Prénom et âge").fill(nouveauTitre);
     await page.getByRole("button", { name: "Enregistrer les modifications" }).click();
 
     await page.waitForURL("**/partenaire?modifie=1");

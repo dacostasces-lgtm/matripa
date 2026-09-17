@@ -52,7 +52,7 @@ test.describe("Catalogue public", () => {
   test("une recherche sans résultat affiche l'état vide", async ({ page }) => {
     await page.goto("/?q=zzzzimpossible");
 
-    await expect(page.getByText("Aucune offre ne correspond")).toBeVisible();
+    await expect(page.getByText("Aucun profil ne correspond")).toBeVisible();
     expect(await countCards(page)).toBe(0);
   });
 

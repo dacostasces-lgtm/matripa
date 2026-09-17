@@ -1,4 +1,9 @@
 import { expect, type Page } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
+
+import { API, SERVICE_KEY, TEST_PASSWORD } from "./constants";
+
+export { ADMIN_EMAIL, TEST_PASSWORD } from "./constants";
 
 /**
  * Identifiants uniques par exécution : la base locale n'est pas réinitialisée
@@ -17,8 +22,6 @@ export const uniqueEmail = () => `e2e-${run}-${seq()}@matripa.test`;
 
 /** Numéro congolais plausible, distinct à chaque appel et d'une exécution à l'autre. */
 export const uniquePhone = () => `+242 06 ${run.slice(0, 3)} ${seq()} ${run.slice(3, 5)}`;
-
-export const TEST_PASSWORD = "MotDePasseE2E2026!";
 
 /** PNG 1×1 valide, suffisant pour exercer l'upload sans embarquer de fixture. */
 export const tinyPng = () =>
@@ -46,19 +49,33 @@ export async function countCards(page: Page): Promise<number> {
   // Laisse la navigation RSC se terminer avant de sonder. Sans cela, après un
   // clic de filtre, le compteur *précédent* est encore à l'écran : il satisfait
   // le motif, le sondage s'arrête, et on mesure l'état d'avant.
-  await page.waitForLoadState("networkidle").catch(() => {});
+  //
+  // Timeout court et non bloquant : les cartes du fil sont des `next/link`
+  // préchargés au survol/scroll, et leur requête RSC de préchargement
+  // (`?_rsc=...`) reste parfois en vol après une navigation complète
+  // (`page.goto`), retardant `networkidle` de plusieurs secondes sans rapport
+  // avec le rendu réel. Le sondage ci-dessous, qui relit le compteur jusqu'à
+  // 15 s, est la vraie garantie de fraîcheur ; cette attente n'est qu'une
+  // optimisation pour éviter de lire l'état précédent trop tôt.
+  await page.waitForLoadState("networkidle", { timeout: 3_000 }).catch(() => {});
 
   await expect
     .poll(
       async () => {
-        const counter = page.locator('p:has-text("offre")').first();
+        // Sur l'accueil, le paragraphe d'intro (« Découvrez des profils
+        // vérifiés… ») contient lui aussi le mot « profil » et précède le
+        // compteur dans le DOM : `p:has-text("profil")` matchait ce
+        // paragraphe au lieu du compteur. On cible directement le texte du
+        // compteur (chiffre + « profil(s) disponible(s) »), qui lui est
+        // unique sur la page.
+        const counter = page.getByText(/[0-9]+\s*profils?\s+disponibles?/).first();
 
-        if ((await page.getByText("Aucune offre").count()) > 0) {
+        if ((await page.getByText("Aucun profil").count()) > 0) {
           count = 0;
           return true;
         }
         const text = (await counter.textContent().catch(() => null)) ?? "";
-        const matched = text.match(/([0-9]+)\s*offres?\s+disponibles?/);
+        const matched = text.match(/([0-9]+)\s*profils?\s+disponibles?/);
 
         if (!matched) return false;
         count = Number.parseInt(matched[1], 10);
@@ -88,13 +105,28 @@ export async function gotoReady(page: Page, url: string) {
   // Laisse retomber une navigation RSC encore en vol. Après une Server Action,
   // `revalidatePath` déclenche un rafraîchissement du routeur ; naviguer
   // pendant ce temps fait échouer `goto` en `net::ERR_ABORTED`.
-  await page.waitForLoadState("networkidle").catch(() => {});
+  //
+  // Timeout court sur les deux attentes, et non bloquant : les cartes du fil
+  // sont des `next/link` préchargés au survol/scroll, et leur requête RSC de
+  // préchargement (`?_rsc=...`) reste parfois en vol plusieurs secondes après
+  // une navigation, sans rapport avec l'hydratation de la page courante — sur
+  // les parcours qui enchaînent plusieurs `gotoReady` (boucles, deux acteurs),
+  // cela pouvait consommer à lui seul tout le budget du test.
+  await page.waitForLoadState("networkidle", { timeout: 3_000 }).catch(() => {});
   await page.goto(url);
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("networkidle", { timeout: 3_000 }).catch(() => {});
 }
 
-/** Inscription d'un partenaire ; en local la confirmation e-mail est désactivée. */
-export async function signUpPartner(page: Page): Promise<string> {
+/**
+ * Inscription d'un partenaire ; en local la confirmation e-mail est désactivée.
+ *
+ * Vérifié par défaut : depuis la migration 0010, publier exige un compte
+ * vérifié, et la plupart des scénarios ne portent pas sur la vérification.
+ */
+export async function signUpPartner(
+  page: Page,
+  { verified = true }: { verified?: boolean } = {},
+): Promise<string> {
   const email = uniqueEmail();
 
   await gotoReady(page, "/connexion");
@@ -104,8 +136,58 @@ export async function signUpPartner(page: Page): Promise<string> {
   await page.getByRole("button", { name: "Créer mon compte" }).click();
 
   await page.waitForURL("**/partenaire", { timeout: 15_000 });
-  await expect(page.getByRole("heading", { name: "Mes offres" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Mes profils" })).toBeVisible();
+
+  if (verified) {
+    await markVerified(email);
+    await page.reload();
+  }
   return email;
+}
+
+const serviceClient = () =>
+  createClient(API, SERVICE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+
+async function userIdByEmail(email: string): Promise<string> {
+  const { data, error } = await serviceClient().auth.admin.listUsers({ perPage: 1000 });
+  if (error) throw error;
+  const user = data.users.find((u) => u.email === email);
+  if (!user) throw new Error(`compte introuvable : ${email}`);
+  return user.id;
+}
+
+/** Pose une vérification approuvée, sans passer par l'examen (service_role). */
+export async function markVerified(email: string) {
+  const { error } = await serviceClient().from("verification_requests").insert({
+    user_id: await userIdByEmail(email),
+    status: "approved",
+    challenge_code: "E2E000",
+    document_type: "cni",
+    reviewed_at: new Date().toISOString(),
+  });
+  if (error) throw error;
+}
+
+export async function latestVerification(
+  email: string,
+): Promise<{ status: string; video_path: string | null } | null> {
+  const { data, error } = await serviceClient()
+    .from("verification_requests")
+    .select("status, video_path")
+    .eq("user_id", await userIdByEmail(email))
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function signIn(page: Page, email: string) {
+  await gotoReady(page, "/connexion");
+  await page.getByLabel("Adresse e-mail").fill(email);
+  await page.getByLabel("Mot de passe").fill(TEST_PASSWORD);
+  await page.getByRole("button", { name: "Se connecter" }).click();
+  await page.waitForURL((url) => !url.pathname.startsWith("/connexion"), { timeout: 15_000 });
 }
 
 /**
@@ -121,23 +203,23 @@ export async function publishListing(
 ): Promise<string> {
   const titre = `Offre E2E ${uniqueEmail().split("@")[0].slice(-8)}`;
 
-  await page.getByRole("link", { name: "Nouvelle offre" }).click();
+  await page.getByRole("link", { name: "Nouveau profil" }).click();
   await page.waitForURL("**/partenaire/annonces/nouvelle");
 
   await page
     .locator('input[type="file"][accept^="image"]')
     .setInputFiles({ name: "visuel.png", mimeType: "image/png", buffer: tinyPng() });
 
-  await page.getByLabel("Titre de l'offre").fill(titre);
+  await page.getByLabel("Prénom et âge").fill(titre);
   await page
     .getByLabel("Description")
     .fill("Description de test suffisamment longue pour passer la validation serveur.");
   await page.getByLabel("Catégorie").selectOption(overrides.category ?? "categorie-a");
-  await page.getByLabel("Type d'offre").selectOption("option_1");
+  await page.getByLabel("Formule").selectOption("option_1");
   await page.getByLabel("Type de service").selectOption("sur_place");
   await page.getByLabel("Ville").selectOption(overrides.city ?? "brazzaville");
   await page.getByLabel("Tarif (FCFA)").fill("50000");
-  await page.getByRole("button", { name: "Enregistrer l'offre" }).click();
+  await page.getByRole("button", { name: "Publier le profil" }).click();
   await page.waitForURL("**/partenaire?cree=1");
 
   return titre;
