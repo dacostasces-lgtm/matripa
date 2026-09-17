@@ -25,14 +25,20 @@ export async function findVerificationUpload(userId: string, requestId: string):
   return match ? `${userId}/${match.name}` : null;
 }
 
-/** Toutes les vidéos du bucket, à plat. Les dossiers sont renvoyés sans `id`. */
-export async function listVerificationVideos(): Promise<StoredVideo[]> {
+/**
+ * Toutes les vidéos du bucket, à plat. Les dossiers sont renvoyés sans `id`.
+ *
+ * null si le listing du bucket ou d'un seul dossier échoue : une liste
+ * partielle laisserait la purge remettre à null des références dont le
+ * fichier n'a pas été vu, donc pas supprimé.
+ */
+export async function listVerificationVideos(): Promise<StoredVideo[] | null> {
   const storage = bucket();
   const { data: folders, error } = await storage.list("", { limit: 1000 });
 
   if (error) {
     console.error("[verification] bucket listing failed", error);
-    return [];
+    return null;
   }
 
   const nested = await Promise.all(
@@ -42,7 +48,7 @@ export async function listVerificationVideos(): Promise<StoredVideo[]> {
         const { data: files, error: folderError } = await storage.list(folder.name, { limit: 1000 });
         if (folderError) {
           console.error("[verification] folder listing failed", folderError);
-          return [];
+          return null;
         }
         // Un timestamp inconnu est traité comme ancien : l'objet sera éligible au nettoyage.
         // Les fichiers orphelins doivent être supprimables, ne pas se bloquer sur une métadonnée manquante.
@@ -58,7 +64,12 @@ export async function listVerificationVideos(): Promise<StoredVideo[]> {
       }),
   );
 
-  return nested.flat();
+  const videos: StoredVideo[] = [];
+  for (const files of nested) {
+    if (!files) return null;
+    videos.push(...files);
+  }
+  return videos;
 }
 
 export async function deleteVerificationVideos(paths: string[]): Promise<boolean> {

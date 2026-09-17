@@ -156,7 +156,24 @@ export type StoredVideo = { path: string; createdAt: string };
 
 export type VideoReference = { id: string; status: VerificationStatus; video_path: string | null };
 
-const FINAL_STATUSES: readonly VerificationStatus[] = ["approved", "rejected", "revoked"];
+/** Demandes jugées : leur vidéo n'a plus à être conservée. */
+export const FINAL_STATUSES: readonly VerificationStatus[] = ["approved", "rejected", "revoked"];
+
+/**
+ * Lignes d'une lecture PostgREST faite avec `{ count: "exact" }`, ou null si
+ * la lecture a échoué ou a été tronquée (`max_rows`, 1 000 lignes par défaut).
+ * Une liste partielle ne doit jamais passer pour complète : la purge
+ * traiterait les vidéos non listées comme abandonnées.
+ */
+export function completeRows<T>(result: {
+  data: T[] | null;
+  error: unknown;
+  count: number | null;
+}): T[] | null {
+  if (result.error || result.count === null) return null;
+  const rows = result.data ?? [];
+  return result.count > rows.length ? null : rows;
+}
 
 /**
  * Vidéos à supprimer et demandes dont `video_path` doit être remis à null.

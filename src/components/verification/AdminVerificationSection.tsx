@@ -6,7 +6,7 @@ import { blockMinorVerification, purgeVerificationVideos, revokeVerification } f
 import { VerificationReview } from "@/components/verification/VerificationReview";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { planVideoPurge, type VideoReference } from "@/lib/verification";
+import { completeRows, FINAL_STATUSES, planVideoPurge, type VideoReference } from "@/lib/verification";
 import { listVerificationVideos } from "@/lib/verification-storage";
 import { documentLabel } from "@/types/verification";
 
@@ -33,7 +33,7 @@ export async function AdminVerificationSection({ page }: { page: number }) {
   const supabase = await createClient();
   const from = (page - 1) * PAGE_SIZE;
 
-  const [{ data: queueData }, { data: verifiedData, count }, { data: refs, error: refsError }, files] = await Promise.all([
+  const [{ data: queueData }, { data: verifiedData, count }, pendingResult, decidedResult, files] = await Promise.all([
     supabase
       .from("verification_requests")
       .select("id, user_id, document_type, submitted_at, challenge_code")
@@ -49,7 +49,14 @@ export async function AdminVerificationSection({ page }: { page: number }) {
       .returns<VerifiedItem[]>(),
     supabase
       .from("verification_requests")
-      .select("id, status, video_path")
+      .select("id, status, video_path", { count: "exact" })
+      .eq("status", "pending")
+      .not("video_path", "is", null)
+      .returns<VideoReference[]>(),
+    supabase
+      .from("verification_requests")
+      .select("id, status, video_path", { count: "exact" })
+      .in("status", FINAL_STATUSES)
       .not("video_path", "is", null)
       .returns<VideoReference[]>(),
     listVerificationVideos(),
@@ -57,11 +64,15 @@ export async function AdminVerificationSection({ page }: { page: number }) {
 
   const queue = queueData ?? [];
   const verifiedAccounts = verifiedData ?? [];
-  // Une requête en échec ne doit pas être lue comme « aucune référence » :
-  // le bandeau de purge afficherait alors à tort des demandes `pending`
-  // comme abandonnées. On masque simplement le bandeau dans ce cas.
-  if (refsError) console.error("[admin] purge refs query failed", refsError);
-  const toPurge = refsError ? 0 : planVideoPurge(files, refs ?? [], new Date()).paths.length;
+  // Même garde que `purgeVerificationVideos` : une lecture en échec ou
+  // tronquée (nombre exact supérieur aux lignes reçues) ferait compter les
+  // vidéos de demandes `pending` comme abandonnées. Le bandeau est alors
+  // simplement masqué, tout comme si le listing du bucket a échoué.
+  const pending = completeRows(pendingResult);
+  const decided = completeRows(decidedResult);
+  if (!pending || !decided) console.error("[admin] purge refs incomplete");
+  const toPurge =
+    pending && decided && files ? planVideoPurge(files, [...pending, ...decided], new Date()).paths.length : 0;
 
   const userIds = [...new Set([...queue, ...verifiedAccounts].map((item) => item.user_id))];
   const admin = createAdminClient();

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   checkVideo,
+  completeRows,
   graceSummary,
   hasAllApprovalChecks,
   MAX_VIDEO_BYTES,
@@ -156,6 +157,25 @@ describe("planVideoPurge", () => {
 
     expect(plan.paths.sort()).toEqual(["u/approved.mp4", "u/orphan-old.mp4"]);
     expect(plan.clearRequestIds.sort()).toEqual(["a", "r"]);
+  });
+});
+
+describe("completeRows", () => {
+  it("renvoie les lignes quand le nombre exact correspond", () => {
+    expect(completeRows({ data: [1, 2], error: null, count: 2 })).toEqual([1, 2]);
+    expect(completeRows({ data: null, error: null, count: 0 })).toEqual([]);
+  });
+
+  it("rejette une lecture en échec", () => {
+    expect(completeRows({ data: null, error: { message: "boom" }, count: null })).toBeNull();
+  });
+
+  it("rejette une lecture sans nombre exact", () => {
+    expect(completeRows({ data: [1], error: null, count: null })).toBeNull();
+  });
+
+  it("rejette une lecture tronquée par max_rows", () => {
+    expect(completeRows({ data: [1, 2], error: null, count: 1500 })).toBeNull();
   });
 });
 

@@ -5,6 +5,8 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { LISTINGS_TAG } from "@/lib/listings";
 import {
+  completeRows,
+  FINAL_STATUSES,
   hasAllApprovalChecks,
   planVideoPurge,
   verificationErrorMessage,
@@ -171,25 +173,47 @@ export async function purgeVerificationVideos(_formData: FormData) {
   const { data: isAdmin } = await supabase.rpc("is_admin");
   if (!isAdmin) return;
 
-  const [{ data: refs, error: refsError }, files] = await Promise.all([
+  const [pendingResult, decidedResult, files] = await Promise.all([
     supabase
       .from("verification_requests")
-      .select("id, status, video_path")
+      .select("id, status, video_path", { count: "exact" })
+      .eq("status", "pending")
+      .not("video_path", "is", null)
+      .returns<VideoReference[]>(),
+    supabase
+      .from("verification_requests")
+      .select("id, status, video_path", { count: "exact" })
+      .in("status", FINAL_STATUSES)
       .not("video_path", "is", null)
       .returns<VideoReference[]>(),
     listVerificationVideos(),
   ]);
 
-  // Une requête en échec (ou tronquée) ne doit jamais être lue comme
-  // « aucune demande en cours » : `planVideoPurge` traiterait alors les
-  // vidéos des demandes `pending` comme abandonnées et les supprimerait.
-  if (refsError) {
-    console.error("[admin] purge refs query failed", refsError);
+  // Les demandes `pending` sont la liste de protection : une lecture en échec
+  // ou tronquée par `max_rows` (nombre exact supérieur aux lignes reçues)
+  // ferait passer leurs vidéos pour abandonnées, et elles seraient supprimées.
+  // Les demandes jugées ne servent qu'à désigner les fichiers purgeables et
+  // les références à remettre à null ; une liste incomplète interrompt aussi
+  // la purge, par prudence.
+  const pending = completeRows(pendingResult);
+  const decided = completeRows(decidedResult);
+
+  if (!pending || !decided) {
+    console.error("[admin] purge refs incomplete", {
+      pending: { error: pendingResult.error, count: pendingResult.count, rows: pendingResult.data?.length ?? 0 },
+      decided: { error: decidedResult.error, count: decidedResult.count, rows: decidedResult.data?.length ?? 0 },
+    });
     revalidatePath("/admin");
     return;
   }
 
-  const plan = planVideoPurge(files, refs ?? [], new Date());
+  if (!files) {
+    console.error("[admin] purge aborted: bucket listing failed");
+    revalidatePath("/admin");
+    return;
+  }
+
+  const plan = planVideoPurge(files, [...pending, ...decided], new Date());
 
   if (await deleteVerificationVideos(plan.paths)) {
     for (const id of plan.clearRequestIds) {
