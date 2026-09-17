@@ -8,7 +8,7 @@
 -- suite donnée, et chaque décision de l'équipe est tracée.
 
 begin;
-select plan(40);
+select plan(49);
 
 -- Jeu d'essai ---------------------------------------------------------------
 -- r1, r2, r3 : signaleurs · o1 : propriétaire vérifié · o2 : propriétaire
@@ -122,6 +122,17 @@ select throws_ok(
 );
 
 reset role;
+
+-- Instantané : lu en superutilisateur, la colonne n'étant pas accordée au
+-- signaleur.
+select is(
+  (select listing_title_snapshot from public.listing_reports
+    where listing_id = 'd1000000-0000-0000-0000-000000000001'
+      and reporter_id = 'd0000000-0000-0000-0000-000000000001'),
+  'Profil rep-l1',
+  'le titre de l''annonce est figé au moment du signalement'
+);
+
 set local role anon;
 set local request.jwt.claims = '{"role":"anon"}';
 
@@ -188,6 +199,21 @@ select throws_ok(
   null,
   'le partenaire ne peut pas lever la suspension'
 );
+
+-- RLS filtre silencieusement la ligne (aucune erreur) : c'est le décompte
+-- qui suit, pas cette suppression, qui porte l'assertion.
+delete from public.listings where id = 'd1000000-0000-0000-0000-000000000002';
+
+reset role;
+
+select is(
+  (select count(*)::int from public.listings where id = 'd1000000-0000-0000-0000-000000000002'),
+  1,
+  'le partenaire ne peut pas supprimer un profil suspendu'
+);
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"d0000000-0000-0000-0000-000000000003","role":"authenticated"}';
 
 select lives_ok(
   $$ update public.listings set status = 'draft'
@@ -307,6 +333,19 @@ select is(
 
 reset role;
 set local role authenticated;
+set local request.jwt.claims = '{"sub":"d0000000-0000-0000-0000-000000000002","role":"authenticated"}';
+
+-- Les deux signalements sur L2 ont été classés sans suite : re-signaler le
+-- même profil reste refusé, pour empêcher un blanchiment suivi d'une
+-- suspension à répétition par le même compte.
+select throws_ok(
+  $$ select * from submit_report('d1000000-0000-0000-0000-000000000002', 'personne_mineure', null) $$,
+  'already_reported',
+  'un compte dont le signalement a été classé sans suite ne peut pas re-signaler le même profil'
+);
+
+reset role;
+set local role authenticated;
 set local request.jwt.claims = '{"sub":"d0000000-0000-0000-0000-000000000004","role":"authenticated"}';
 
 select throws_ok(
@@ -343,6 +382,34 @@ select ok(
   (select suspended_at is not null from public.listings
     where id = 'd1000000-0000-0000-0000-000000000001'),
   'et le suspend définitivement'
+);
+
+/* -------------------------------------------------------------------------- */
+/*                     Signalement sur un profil déjà retiré                  */
+/* -------------------------------------------------------------------------- */
+
+-- Un signalement peut rester ouvert sur un profil déjà archivé (posé juste
+-- avant le retrait, ou directement comme ici) : le classer sans suite ne doit
+-- pas rouvrir l'accès à un profil déjà retiré.
+insert into public.listing_reports (id, listing_id, owner_id, reporter_id, reason, is_urgent)
+values ('d2000000-0000-0000-0000-000000000002', 'd1000000-0000-0000-0000-000000000001',
+        'd0000000-0000-0000-0000-000000000003', 'd0000000-0000-0000-0000-000000000002',
+        'contrainte_exploitation', true);
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"d0000000-0000-0000-0000-000000000004","role":"authenticated"}';
+
+select lives_ok(
+  $$ select review_report('d2000000-0000-0000-0000-000000000002', 'dismiss') $$,
+  'un signalement sur un profil déjà retiré peut être classé sans suite'
+);
+
+reset role;
+
+select ok(
+  (select suspended_at is not null from public.listings
+    where id = 'd1000000-0000-0000-0000-000000000001'),
+  'classer sans suite ne lève pas la suspension d''un profil déjà archivé'
 );
 
 /* -------------------------------------------------------------------------- */
@@ -410,8 +477,84 @@ set local request.jwt.claims = '{"sub":"d0000000-0000-0000-0000-000000000004","r
 
 select is(
   (select count(*)::int from public.moderation_log where report_id is not null),
-  4,
+  5,
   'chaque décision sur un signalement est journalisée'
+);
+
+reset role;
+
+/* -------------------------------------------------------------------------- */
+/*                    Constat de minorité sans propriétaire                   */
+/* -------------------------------------------------------------------------- */
+
+-- Annonce historique sans compte propriétaire (antérieure à la vérification
+-- d'identité, encore visible dans son délai de grâce) : `block_minor` doit
+-- tout de même retirer le profil signalé, même s'il n'y a personne à bloquer.
+insert into public.listings (
+  id, slug, title, description, category, option_type, mobility, city,
+  price_xaf, price_unit, cover_url, status, owner_id, is_verified, verification_grace_until
+) values (
+  'd1000000-0000-0000-0000-000000000010', 'rep-l10', 'Profil rep-l10',
+  'Description suffisamment longue pour la validation applicative.',
+  'categorie-a', 'option_1', 'sur_place', 'brazzaville', 30000, 'hour',
+  'https://exemple/rep-l10.jpg', 'published', null, false, now() + interval '7 days'
+);
+
+insert into public.listing_reports (id, listing_id, owner_id, reporter_id, reason, is_urgent)
+values ('d2000000-0000-0000-0000-000000000003', 'd1000000-0000-0000-0000-000000000010',
+        null, 'd0000000-0000-0000-0000-000000000006', 'personne_mineure', true);
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"d0000000-0000-0000-0000-000000000004","role":"authenticated"}';
+
+select lives_ok(
+  $$ select review_report('d2000000-0000-0000-0000-000000000003', 'block_minor') $$,
+  'un administrateur peut constater la minorité sur un profil sans propriétaire'
+);
+
+reset role;
+
+select is(
+  (select status::text from public.listings where id = 'd1000000-0000-0000-0000-000000000010'),
+  'archived',
+  'le profil sans propriétaire est archivé'
+);
+
+select ok(
+  (select suspended_at is not null from public.listings
+    where id = 'd1000000-0000-0000-0000-000000000010'),
+  'et suspendu'
+);
+
+/* -------------------------------------------------------------------------- */
+/*                       Signalement sur son propre bien                      */
+/* -------------------------------------------------------------------------- */
+
+-- Annonce et signalement insérés en superutilisateur, pour poser le cas d'un
+-- administrateur propriétaire de l'annonce signalée.
+insert into public.listings (
+  id, slug, title, description, category, option_type, mobility, city,
+  price_xaf, price_unit, cover_url, status, owner_id, is_verified
+) values (
+  'd1000000-0000-0000-0000-000000000009', 'rep-l9', 'Profil rep-l9',
+  'Description suffisamment longue pour la validation applicative.',
+  'categorie-a', 'option_1', 'sur_place', 'brazzaville', 30000, 'hour',
+  'https://exemple/rep-l9.jpg', 'published', 'd0000000-0000-0000-0000-000000000004', true
+);
+
+insert into public.listing_reports (id, listing_id, owner_id, reporter_id, reason, is_urgent)
+values ('d2000000-0000-0000-0000-000000000004', 'd1000000-0000-0000-0000-000000000009',
+        'd0000000-0000-0000-0000-000000000004', 'd0000000-0000-0000-0000-000000000001',
+        'faux_profil', false);
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"d0000000-0000-0000-0000-000000000004","role":"authenticated"}';
+
+select throws_ok(
+  $$ select review_report('d2000000-0000-0000-0000-000000000004', 'dismiss') $$,
+  '42501',
+  'forbidden',
+  'un administrateur ne peut pas trancher un signalement sur sa propre annonce'
 );
 
 reset role;

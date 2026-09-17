@@ -23,7 +23,7 @@ export function checkReportDetails(reason: ReportReason, details: string): strin
 }
 
 const ERROR_MESSAGES = {
-  already_reported: "Vous avez déjà signalé ce profil. Il est en cours d'examen.",
+  already_reported: "Vous avez déjà signalé ce profil.",
   rate_limited: "Trop de signalements en peu de temps. Réessayez plus tard.",
   listing_unavailable: "Ce profil n'est plus disponible.",
   own_listing: "Vous ne pouvez pas signaler votre propre profil.",

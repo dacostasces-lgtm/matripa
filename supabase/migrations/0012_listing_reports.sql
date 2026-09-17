@@ -44,6 +44,14 @@ create table public.listing_reports (
   -- passe par une conversion qui ne l'est pas toujours.
   is_urgent       boolean not null,
   details         text check (details is null or char_length(details) <= 1000),
+  -- Instantané de l'annonce au moment du signalement : le partenaire peut
+  -- modifier l'annonce (ou la republier différemment) pendant qu'un
+  -- signalement reste ouvert ; l'équipe doit juger ce qui a été signalé, pas
+  -- l'état courant.
+  listing_title_snapshot       text,
+  listing_description_snapshot text
+    check (listing_description_snapshot is null or char_length(listing_description_snapshot) <= 1000),
+  listing_cover_url_snapshot   text,
   status          public.report_status not null default 'open',
   reviewed_by     uuid references auth.users (id) on delete set null,
   reviewed_at     timestamptz,
@@ -97,6 +105,16 @@ create policy "listings_public_read"
     and (is_verified or verification_grace_until > now())
     and suspended_at is null
   );
+
+-- Sans cette condition, un partenaire pourrait échapper à un signalement en
+-- supprimant le profil suspendu puis en le republiant à l'identique. Définition
+-- identique à celle de la migration 0001, seule la condition de suspension
+-- s'ajoute.
+drop policy "listings_owner_delete" on public.listings;
+
+create policy "listings_owner_delete"
+  on public.listings for delete
+  using (auth.uid() = owner_id and suspended_at is null);
 
 -- Même règle que la lecture publique : ces fonctions contournent RLS.
 -- Redéfinitions intégrales de la migration 0011 ; seule la condition
@@ -239,17 +257,26 @@ set search_path = public
 as $$
 #variable_conflict use_column
 declare
-  v_uid     uuid := auth.uid();
-  v_owner   uuid;
-  v_title   text;
-  v_city    text;
-  v_details text := nullif(trim(coalesce(p_details, '')), '');
-  v_urgent  boolean;
-  v_id      uuid;
+  v_uid         uuid := auth.uid();
+  v_owner       uuid;
+  v_title       text;
+  v_city        text;
+  v_description text;
+  v_cover_url   text;
+  v_details     text := nullif(trim(coalesce(p_details, '')), '');
+  v_urgent      boolean;
+  v_id          uuid;
 begin
   if v_uid is null then
     raise exception 'forbidden' using errcode = '42501';
   end if;
+
+  -- Verrou consultatif exclusif, à la clé du compte signaleur (préfixé pour
+  -- rester distinct de la clé par propriétaire prise dans `review_report`) :
+  -- sérialise les appels concurrents d'un même compte, pour que la
+  -- vérification « déjà signalé » et la limite horaire, toutes deux lues puis
+  -- écrites plus bas, restent valables même face à des appels parallèles.
+  perform pg_advisory_xact_lock(hashtextextended('listing_report:' || v_uid::text, 0));
 
   if p_reason is null then
     raise exception 'invalid_reason' using errcode = '22023';
@@ -259,8 +286,8 @@ begin
 
   -- Même prédicat que `listings_public_read` : on ne signale que ce que le
   -- public voit.
-  select l.owner_id, l.title, l.city
-    into v_owner, v_title, v_city
+  select l.owner_id, l.title, l.city, l.description, l.cover_url
+    into v_owner, v_title, v_city, v_description, v_cover_url
     from public.listings l
    where l.id = p_listing_id
      and l.status = 'published'
@@ -275,9 +302,13 @@ begin
     raise exception 'own_listing' using errcode = '22023';
   end if;
 
+  -- Couvre aussi un signalement déjà classé sans suite : sinon le même compte
+  -- pourrait re-signaler indéfiniment un profil blanchi par l'équipe et le
+  -- faire suspendre à nouveau (s'il choisit un motif urgent).
   if exists (
     select 1 from public.listing_reports r
-     where r.reporter_id = v_uid and r.listing_id = p_listing_id and r.status = 'open'
+     where r.reporter_id = v_uid and r.listing_id = p_listing_id
+       and r.status in ('open', 'dismissed')
   ) then
     raise exception 'already_reported' using errcode = '22023';
   end if;
@@ -297,8 +328,14 @@ begin
     raise exception 'details_required' using errcode = '22023';
   end if;
 
-  insert into public.listing_reports as r (listing_id, owner_id, reporter_id, reason, is_urgent, details)
-  values (p_listing_id, v_owner, v_uid, p_reason, v_urgent, v_details)
+  insert into public.listing_reports as r (
+    listing_id, owner_id, reporter_id, reason, is_urgent, details,
+    listing_title_snapshot, listing_description_snapshot, listing_cover_url_snapshot
+  )
+  values (
+    p_listing_id, v_owner, v_uid, p_reason, v_urgent, v_details,
+    v_title, left(v_description, 1000), v_cover_url
+  )
   returning r.id into v_id;
 
   if v_urgent then
@@ -321,8 +358,9 @@ security definer
 set search_path = public
 as $$
 declare
-  v_report public.listing_reports%rowtype;
-  v_note   text := left(nullif(trim(coalesce(p_note, '')), ''), 300);
+  v_report   public.listing_reports%rowtype;
+  v_owner_id uuid;
+  v_note     text := left(nullif(trim(coalesce(p_note, '')), ''), 300);
 begin
   if not public.is_admin() then
     raise exception 'forbidden' using errcode = '42501';
@@ -332,13 +370,31 @@ begin
     raise exception 'invalid_decision' using errcode = '22023';
   end if;
 
+  -- Lecture sans verrou de ligne : détermine la clé du verrou consultatif
+  -- avant de verrouiller la ligne, pour respecter l'ordre « verrou
+  -- consultatif puis verrou de ligne » suivi par `listings_enforce_verification`
+  -- et `review_verification` (migration 0011), et éviter un interblocage.
+  select r.owner_id into v_owner_id
+    from public.listing_reports r
+   where r.id = p_report_id;
+
+  if not found then
+    raise exception 'not_found' using errcode = 'P0002';
+  end if;
+
+  if v_owner_id is not null then
+    perform pg_advisory_xact_lock(hashtextextended(v_owner_id::text, 0));
+  end if;
+
   select * into v_report
     from public.listing_reports r
    where r.id = p_report_id
    for update;
 
-  if not found then
-    raise exception 'not_found' using errcode = 'P0002';
+  -- Personne ne tranche un signalement visant sa propre annonce, pas même un
+  -- administrateur.
+  if v_report.owner_id = auth.uid() then
+    raise exception 'forbidden' using errcode = '42501';
   end if;
 
   if v_report.status <> 'open' then
@@ -349,12 +405,6 @@ begin
     raise exception 'note_required' using errcode = '22023';
   end if;
 
-  -- Même clé que la vérification d'identité (migration 0011) : une annonce
-  -- créée pendant un blocage attend la décision, puis la voit.
-  if v_report.owner_id is not null then
-    perform pg_advisory_xact_lock(hashtextextended(v_report.owner_id::text, 0));
-  end if;
-
   update public.listing_reports
      set status = case when p_decision = 'dismiss' then 'dismissed' else 'confirmed' end::public.report_status,
          reviewed_by = auth.uid(),
@@ -363,13 +413,16 @@ begin
    where id = p_report_id;
 
   if p_decision = 'dismiss' then
-    -- La suspension ne tombe que si plus aucun signalement urgent ne vise
-    -- l'annonce.
+    -- La suspension ne tombe que si le profil n'est pas déjà archivé, qu'aucun
+    -- signalement confirmé ne le vise, et que plus aucun signalement urgent
+    -- ouvert ne le vise.
     if v_report.listing_id is not null and not exists (
+      select 1 from public.listings l
+       where l.id = v_report.listing_id and l.status = 'archived'
+    ) and not exists (
       select 1 from public.listing_reports r
        where r.listing_id = v_report.listing_id
-         and r.status = 'open'
-         and r.is_urgent
+         and (r.status = 'confirmed' or (r.status = 'open' and r.is_urgent))
     ) then
       update public.listings set suspended_at = null where id = v_report.listing_id;
     end if;
@@ -414,6 +467,18 @@ begin
       update public.listing_reports
          set status = 'confirmed', reviewed_by = auth.uid(), reviewed_at = now(), resolution_note = v_note
        where owner_id = v_report.owner_id and status = 'open';
+
+    elsif v_report.listing_id is not null then
+      -- Annonce sans compte propriétaire (antérieure à la vérification
+      -- d'identité) : personne à bloquer, mais le profil signalé est tout de
+      -- même retiré, comme pour `remove`, sans exiger de note.
+      update public.listings
+         set status = 'archived', suspended_at = coalesce(suspended_at, now())
+       where id = v_report.listing_id;
+
+      update public.listing_reports
+         set status = 'confirmed', reviewed_by = auth.uid(), reviewed_at = now(), resolution_note = v_note
+       where listing_id = v_report.listing_id and status = 'open';
     end if;
   end if;
 
@@ -440,7 +505,10 @@ returns table (
   listing_suspended_at    timestamptz,
   listing_is_verified     boolean,
   listing_grace_until     timestamptz,
-  open_reports_on_listing integer
+  open_reports_on_listing integer,
+  snapshot_title          text,
+  snapshot_description    text,
+  snapshot_cover_url      text
 )
 language plpgsql
 stable
@@ -459,7 +527,8 @@ begin
            l.title, l.city, l.cover_url, left(l.description, 280),
            l.status, l.suspended_at, l.is_verified, l.verification_grace_until,
            (select count(*)::int from public.listing_reports o
-             where o.listing_id = r.listing_id and o.status = 'open')
+             where o.listing_id = r.listing_id and o.status = 'open'),
+           r.listing_title_snapshot, r.listing_description_snapshot, r.listing_cover_url_snapshot
       from public.listing_reports r
       left join public.listings l on l.id = r.listing_id
      where r.status = 'open'
