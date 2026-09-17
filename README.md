@@ -25,9 +25,9 @@ Basculer `.env.local` sur le bloc « stack locale » commenté en fin de fichier
 | Commande | Effet |
 |---|---|
 | `npm run check` | `tsc --noEmit` + tests unitaires |
-| `npm test` | Vitest (36 tests, logique pure) |
-| `npm run test:db` | pgTAP (34 tests de sécurité, nécessite `supabase start`) |
-| `npm run test:e2e` | Playwright (27 parcours, nécessite `supabase start`) |
+| `npm test` | Vitest (67 tests, logique pure) |
+| `npm run test:db` | pgTAP (90 tests de sécurité, nécessite `supabase start`) |
+| `npm run test:e2e` | Playwright (30 parcours, nécessite `supabase start`) |
 | `npm run build` | Build de production |
 
 ---
@@ -47,8 +47,9 @@ src/
     compte/                      Export et suppression des données
     cgu/ confidentialite/ mentions-legales/
     partenaire/                  Tableau de bord, création, édition
+    partenaire/verification/     Vérification d'identité par selfie vidéo
     mes-demandes/                Suivi client et dépôt d'avis
-    admin/                       Certification (Vérifié / VIP)
+    admin/                       Vérification d'identité, VIP, modération
     api/webhooks/new-request/    Notification déclenchée par pg_net
     api/webhooks/pawapay/        Callback de dépôt mobile money
     api/revalidate/              Purge du cache catalogue
@@ -61,8 +62,9 @@ src/
   types/{listing,database}.ts
 e2e/                             Playwright (parcours réels, navigateur)
 supabase/
-  migrations/                    0001 → 0009
+  migrations/                    0001 → 0011
   tests/security.test.sql        pgTAP
+  tests/verification.test.sql    pgTAP (vérification d'identité)
   seed.sql
 ```
 
@@ -92,12 +94,14 @@ Concrètement :
 | Champ | Qui peut l'écrire |
 |---|---|
 | Contenu de l'annonce | le partenaire propriétaire (policy + GRANT) |
-| `is_vip`, `is_verified` | personne en direct → `set_listing_certification()`, qui vérifie `admins` |
+| `is_vip` | personne en direct → `set_listing_certification()`, qui vérifie `admins` |
+| `is_verified`, `verification_grace_until` | aucun rôle client — dérivés de la vérification du compte par `review_verification()` et le trigger `listings_enforce_verification` |
+| `verification_requests` | personne en direct → `start_verification()`, `submit_verification()`, `review_verification()` |
 | `rating`, `reviews_count` | aucun rôle client — recalculés par le trigger `reviews_recompute_rating` |
 | `requests` (insertion) | personne en direct → `submit_request()`, qui applique disponibilité + anti-spam |
 | `reviews` (insertion) | personne en direct → `submit_review()`, qui exige une demande **confirmée** appartenant à l'auteur |
 
-Les 34 tests pgTAP verrouillent ces propriétés. **Les lancer après toute migration.**
+Les tests pgTAP (`security.test.sql`, `verification.test.sql`) verrouillent ces propriétés. **Les lancer après toute migration.**
 
 ---
 
@@ -107,9 +111,9 @@ Trois niveaux, du plus rapide au plus complet :
 
 | Niveau | Couvre | Prérequis |
 |---|---|---|
-| Vitest (36) | Logique pure : validation de l'URL, formatage, slugs | aucun |
-| pgTAP (34) | RLS, GRANT de colonne, anti-spam, cloisonnement | `supabase start` |
-| Playwright (27) | Parcours réels dans un navigateur | `supabase start` |
+| Vitest (67) | Logique pure : validation de l'URL, formatage, slugs | aucun |
+| pgTAP (90) | RLS, GRANT de colonne, anti-spam, cloisonnement, vérification d'identité | `supabase start` |
+| Playwright (30) | Parcours réels dans un navigateur | `supabase start` |
 
 Les tests de bout en bout s'exécutent **contre la stack locale, jamais contre le projet distant** : ils créent des comptes, déposent des demandes et publient des annonces. Le port `3210` et un build de production sont utilisés, pour exercer le comportement réel (cache et Server Actions compris) plutôt que celui du serveur de développement.
 
@@ -133,7 +137,7 @@ Quatre écueils propres aux tests, tous coûteux à diagnostiquer :
 - **Next insère un `<div role="alert">`** (route announcer) sur chaque page : `getByRole("alert")` est ambigu. Nos messages sont des `<p role="alert">`, ciblés par `alertBox()`.
 - **Le cache `unstable_cache` survit aux rebuilds** et sa clé ne porte pas l'environnement. Un build lancé sur le projet distant laisse des réponses que la suite locale resservirait. D'où le `rm -rf .next/cache` dans `webServer.command`.
 - **`getByRole` fait une correspondance *partielle* sur `name`.** `{ name: "Mon compte" }` capture aussi `<h2>Supprimer mon compte</h2>`. Ancrer sur `level` ou `exact: true`.
-- **Cliquer avant l'hydratation** soumet le formulaire en POST natif : le parcours aboutit, mais ce n'est pas celui qu'on mesure, et le résultat devient intermittent. `gotoReady()` attend `networkidle`.
+- **Cliquer avant l'hydratation** soumet le formulaire en POST natif : le parcours aboutit, mais ce n'est pas celui qu'on mesure, et le résultat devient intermittent. `gotoReady()` attend brièvement `networkidle` (les préchargements RSC de `next/link` peuvent traîner plusieurs secondes après une navigation), puis attend que React ait hydraté `document.body` — c'est ce second signal, et non le délai, qui garantit qu'aucun clic ne part avant l'hydratation.
 
 ---
 
@@ -258,6 +262,44 @@ Conséquence assumée : **une demande déposée en invité ne donne droit à auc
 
 ---
 
+## Vérification d'identité
+
+Publier un profil exige un compte **vérifié** : une personne de l'équipe a contrôlé, sur un selfie vidéo, que le titulaire est **majeur** et correspond à ses photos. Le badge « Certifié » en est la conséquence ; il n'est plus attribuable à la main.
+
+### Parcours
+
+`/partenaire/verification` → `start_verification()` émet un code de 6 caractères valable 30 minutes → la personne se filme 15 s, pièce d'identité près du visage, en prononçant le code → le fichier part directement vers le bucket privé `verifications` → `submit_verification()` vérifie le code, le chemin et l'existence de l'objet → `/admin` : lecture sur URL signée de 5 minutes, quatre contrôles obligatoires, décision → la vidéo est supprimée.
+
+### Cinq propriétés
+
+**Le code vient de la base.** Un code choisi par le client permettrait de réutiliser une vidéo tournée à l'avance.
+
+**Le délai de grâce s'applique à la lecture.** `listings_public_read` exige `is_verified or verification_grace_until > now()`. Au terme du délai, les annonces disparaissent sans tâche planifiée : rien ne peut tomber en panne et laisser des profils non vérifiés en ligne. `submit_request` reprend la même règle, puisqu'elle contourne RLS. `create_payment` aussi : une réservation sur une annonce masquée ou archivée ne peut plus être payée.
+
+**Le trigger ne contraint que les rôles clients.** `listings_enforce_verification` est `SECURITY INVOKER` et teste `current_user in ('anon', 'authenticated')`. Les fonctions `SECURITY DEFINER` (qui s'exécutent sous le rôle propriétaire), `service_role`, les migrations et le seed passent — c'est ce qui permet à `review_verification` de propager `is_verified`.
+
+**On garde le moins possible.** Ni numéro de pièce ni date de naissance. La vidéo est supprimée par l'API Storage juste après la décision : supprimer la ligne dans `storage.objects` laisserait le fichier en place. Si la suppression échoue, la décision reste acquise et `/admin` propose de purger.
+
+**Décision et publication sont sérialisées par compte.** `review_verification` prend un verrou consultatif exclusif sur le compte ; le trigger `listings_enforce_verification` prend le même verrou en mode partagé, **à l'insertion seulement**, avant de lire le statut. Sans cela, une annonce insérée pendant une révocation pouvait hériter du badge et rester en ligne. Une mise à jour n'en a pas besoin : la décision modifie toutes les annonces du compte, une mise à jour concurrente attend donc déjà le verrou de ligne et le trigger reçoit la version écrite par la décision. Y prendre aussi le verrou consultatif, après le verrou de ligne, inverserait l'ordre suivi par `review_verification` (consultatif, puis lignes) et exposerait à un interblocage.
+
+### Constat de minorité
+
+« Signaler une personne mineure » — depuis la file d'examen comme depuis la liste des comptes vérifiés — archive toutes les annonces du compte et l'inscrit dans `verification_blocks`. Le compte ne peut plus demander de vérification.
+
+Une révocation ne peut pas porter le motif « personne mineure » : ce constat passe obligatoirement par le blocage. Levée du blocage, en SQL uniquement :
+
+```sql
+delete from public.verification_blocks where user_id = '<uuid>';
+```
+
+Le partenaire peut alors recommencer une vérification depuis `/partenaire/verification`. L'interface lit le blocage dans `verification_blocks` (`is_verification_blocked()`), et non dans le motif du dernier rejet, qui reste dans l'historique.
+
+### Suppression du compte
+
+`deleteMyAccount` supprime le dossier `verifications/<uid>/` **avant** `deleteUser`. En cas d'échec, la suppression du compte est interrompue : on ne laisse pas de pièce d'identité orpheline.
+
+---
+
 ## Cache
 
 | Route | Rendu | Cache |
@@ -297,6 +339,8 @@ Reste que la latence vers l'edge Vercel depuis l'Afrique centrale est élevée e
 ### Procédure
 
 1. `supabase db push` (ou appliquer `migrations/` puis `seed.sql`)
+
+   La migration 0011 crée le bucket privé `verifications` et place toutes les annonces publiées en délai de grâce de 7 jours.
 2. Variables d'environnement — voir `.env.example`
 3. Configurer le webhook :
    ```sql
@@ -316,5 +360,6 @@ Reste que la latence vers l'edge Vercel depuis l'Afrique centrale est élevée e
 ## Non fait
 
 - **Icônes PWA** : générées en JSX (`app/icons/[variant]/route.tsx`), à remplacer par le logo réel.
-- **Certification `/admin`** : couverte par pgTAP côté autorisation, mais aucun test E2E ne clique les bascules (il faudrait provisionner un compte administrateur dans la suite).
 - **Visuels de démonstration** : dégradés abstraits, volontairement non photographiques.
+- **Notification des administrateurs** : aucune alerte à l'arrivée d'une vérification ; le compteur de `/admin` fait foi. Brancher `lib/notifications.ts` si le volume le justifie.
+- **Cache et setup E2E** : Playwright lance `next build` (serveur web) avant `globalSetup` (`db reset`). Des entrées `unstable_cache` créées pendant le build peuvent porter des identifiants d'annonces antérieurs au reset ; `demande.spec.ts` lancé seul peut donc échouer pendant 5 minutes. La suite complète le masque (un test antérieur purge l'étiquette).

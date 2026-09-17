@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Politique de confidentialité" };
 
 export default function ConfidentialitePage() {
   return (
-    <LegalPage title="Politique de confidentialité" updatedAt="11 septembre 2026">
+    <LegalPage title="Politique de confidentialité" updatedAt="17 septembre 2026">
       <Article title="Responsable du traitement">
         <p>
           [raison sociale], dont le siège est situé [adresse complète], Brazzaville. Pour toute
@@ -33,6 +33,11 @@ export default function ConfidentialitePage() {
             <strong className="text-white">Avis</strong> — note et commentaire, rattachés à une
             prestation confirmée.
           </li>
+          <li>
+            <strong className="text-white">Vérification d&apos;identité</strong> (annonceurs) —
+            vidéo de vérification (visage, pièce d&apos;identité présentée, code prononcé), type
+            de pièce, décision de l&apos;équipe et, le cas échéant, son motif.
+          </li>
         </ul>
         <p>
           Aucune donnée de paiement n&apos;est collectée : le service n&apos;encaisse aucun
@@ -50,6 +55,13 @@ export default function ConfidentialitePage() {
           Les avis sont publics : la note et le commentaire sont visibles sur la fiche de
           du profil. Votre identité n&apos;y est pas affichée.
         </p>
+        <p>
+          La vidéo de vérification sert à <strong className="text-white">vérifier l&apos;âge
+          (majorité) et l&apos;identité des annonceurs</strong> avant la publication d&apos;un
+          profil, afin de prévenir les faux profils et la publication par des personnes mineures.
+          Elle n&apos;est jamais publiée : seule l&apos;équipe de modération Matripa y a accès,
+          en lecture par un lien temporaire.
+        </p>
       </Article>
 
       <Article title="Durée de conservation">
@@ -57,12 +69,24 @@ export default function ConfidentialitePage() {
           <li>Demandes : 24 mois à compter du dépôt.</li>
           <li>Compte : jusqu&apos;à sa suppression par son titulaire.</li>
           <li>Avis : jusqu&apos;à suppression par leur auteur ou par la modération.</li>
+          <li>
+            Vidéo de vérification : supprimée dès la décision de l&apos;équipe. Les dépôts
+            abandonnés sont également supprimés.
+          </li>
+          <li>
+            Historique des décisions de vérification (type de pièce, décision, motif) : tant que
+            le compte existe.
+          </li>
         </ul>
+        <p>
+          Ni le numéro de la pièce d&apos;identité ni la date de naissance ne sont enregistrés.
+        </p>
       </Article>
 
       <Article title="Sous-traitants">
         <p>
-          Supabase (base de données, authentification et stockage des visuels) et [hébergeur de
+          Supabase (base de données, authentification et hébergement des fichiers via Supabase
+          Storage : visuels et vidéos de vérification) et [hébergeur de
           l&apos;application]. L&apos;envoi des notifications par courriel est assuré par
           [prestataire e-mail].
         </p>

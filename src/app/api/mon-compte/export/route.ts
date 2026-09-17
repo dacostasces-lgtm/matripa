@@ -20,7 +20,7 @@ export async function GET() {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const [requests, reviews, listings] = await Promise.all([
+  const [requests, reviews, listings, verifications] = await Promise.all([
     supabase
       .from("requests")
       .select("id, listing_id, full_name, phone, email, message, desired_date, guests, status, created_at")
@@ -33,6 +33,11 @@ export async function GET() {
       .from("listings")
       .select("id, slug, title, city, price_xaf, price_unit, status, created_at")
       .eq("owner_id", user.id),
+    // Historique de décision seulement : ni code de défi ni chemin de vidéo.
+    supabase
+      .from("verification_requests")
+      .select("id, status, document_type, submitted_at, reviewed_at, rejection_reason, rejection_note, created_at")
+      .eq("user_id", user.id),
   ]);
 
   const payload = {
@@ -46,6 +51,7 @@ export async function GET() {
     demandes: requests.data ?? [],
     avis: reviews.data ?? [],
     offres_publiees: listings.data ?? [],
+    verifications_identite: verifications.data ?? [],
   };
 
   const date = new Date().toISOString().slice(0, 10);

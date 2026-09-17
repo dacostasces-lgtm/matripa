@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { countCards } from "./helpers";
+import { countCards, gotoReady } from "./helpers";
 
 test.describe("Catalogue public", () => {
   test("affiche le fil d'annonces du jeu de démonstration", async ({ page }) => {
@@ -15,7 +15,7 @@ test.describe("Catalogue public", () => {
   });
 
   test("le filtre par ville restreint le fil et se reflète dans l'URL", async ({ page }) => {
-    await page.goto("/");
+    await gotoReady(page, "/");
     const total = await countCards(page);
 
     await page.getByRole("link", { name: "Brazzaville" }).first().click();
@@ -52,7 +52,7 @@ test.describe("Catalogue public", () => {
   test("une recherche sans résultat affiche l'état vide", async ({ page }) => {
     await page.goto("/?q=zzzzimpossible");
 
-    await expect(page.getByText("Aucune offre ne correspond")).toBeVisible();
+    await expect(page.getByText("Aucun profil ne correspond")).toBeVisible();
     expect(await countCards(page)).toBe(0);
   });
 
@@ -64,7 +64,7 @@ test.describe("Catalogue public", () => {
   });
 
   test("la fiche détail expose les informations clés", async ({ page }) => {
-    await page.goto("/");
+    await gotoReady(page, "/");
     await page.locator('a[href^="/annonces/"]').first().click();
     await page.waitForURL("**/annonces/**");
 

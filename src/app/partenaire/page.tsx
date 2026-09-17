@@ -6,7 +6,9 @@ import { Archive, CheckCircle2, Eye, EyeOff, Inbox, MapPin, Pencil, Phone, Plus 
 import { setListingStatus } from "@/app/actions/listings";
 import { setRequestStatus } from "@/app/actions/requests";
 import { VerifiedBadge, VipBadge } from "@/components/ui/badges";
+import { VerificationBanner } from "@/components/verification/VerificationBanner";
 import { createClient } from "@/lib/supabase/server";
+import { graceSummary, isListingHidden } from "@/lib/verification";
 import { cx, formatXAF, priceUnitLabel } from "@/lib/format";
 import { cityLabel, type PriceUnit } from "@/types/listing";
 import type { RawSearchParams } from "@/lib/filters";
@@ -24,6 +26,7 @@ interface OwnListing {
   status: "draft" | "published" | "archived";
   is_vip: boolean;
   is_verified: boolean;
+  verification_grace_until: string | null;
 }
 
 interface OwnRequest {
@@ -43,6 +46,7 @@ export default async function PartenairePage({
 }) {
   const params = await searchParams;
   const notice = params.cree === "1" ? "Profil enregistré." : params.modifie === "1" ? "Modifications enregistrées." : null;
+  const verificationError = params.erreur === "verification";
   const supabase = await createClient();
 
   const {
@@ -58,24 +62,37 @@ export default async function PartenairePage({
   //
   // `requests` n'a pas de policy de lecture publique : elle reste bornée au
   // propriétaire de l'annonce et à l'auteur de la demande.
-  const [{ data: listings }, { data: requests }] = await Promise.all([
-    supabase
-      .from("listings")
-      .select("id, slug, title, city, price_xaf, price_unit, cover_url, status, is_vip, is_verified")
-      .eq("owner_id", user.id)
-      .order("created_at", { ascending: false })
-      .returns<OwnListing[]>(),
-    supabase
-      .from("requests")
-      .select("id, full_name, phone, message, created_at, status, listing_id")
-      .order("created_at", { ascending: false })
-      .limit(20)
-      .returns<OwnRequest[]>(),
-  ]);
+  const [{ data: listings }, { data: requests }, { data: verified }, { data: latestVerification }] =
+    await Promise.all([
+      supabase
+        .from("listings")
+        .select("id, slug, title, city, price_xaf, price_unit, cover_url, status, is_vip, is_verified, verification_grace_until")
+        .eq("owner_id", user.id)
+        .order("created_at", { ascending: false })
+        .returns<OwnListing[]>(),
+      supabase
+        .from("requests")
+        .select("id, full_name, phone, message, created_at, status, listing_id")
+        .order("created_at", { ascending: false })
+        .limit(20)
+        .returns<OwnRequest[]>(),
+      supabase.rpc("is_account_verified", { p_user_id: user.id }),
+      supabase
+        .from("verification_requests")
+        .select("status")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle<{ status: string }>(),
+    ]);
 
   const mine = listings ?? [];
   const inbox = requests ?? [];
   const titleById = new Map(mine.map((l) => [l.id, l.title]));
+  const now = new Date();
+  const isVerified = verified === true;
+  const grace = graceSummary(mine, now);
+  const hiddenCount = mine.filter((listing) => isListingHidden(listing, now)).length;
 
   return (
     <div className="space-y-10">
@@ -87,6 +104,23 @@ export default async function PartenairePage({
           <CheckCircle2 className="size-4 shrink-0" aria-hidden />
           {notice}
         </p>
+      )}
+
+      {verificationError && (
+        <p
+          role="alert"
+          className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200"
+        >
+          Vérifiez votre identité avant de publier un profil.
+        </p>
+      )}
+
+      {!isVerified && (
+        <VerificationBanner
+          pending={latestVerification?.status === "pending"}
+          grace={grace}
+          hiddenCount={hiddenCount}
+        />
       )}
 
       <section className="space-y-4">
@@ -121,7 +155,7 @@ export default async function PartenairePage({
 
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <StatusPill status={listing.status} />
+                      <StatusPill status={listing.status} hidden={isListingHidden(listing, now)} />
                       {listing.is_vip && <VipBadge />}
                       {listing.is_verified && <VerifiedBadge />}
                     </div>
@@ -149,8 +183,15 @@ export default async function PartenairePage({
                   </Link>
                   {listing.status === "published" ? (
                     <StatusAction id={listing.id} to="draft" icon="down" label="Dépublier" />
-                  ) : (
+                  ) : isVerified ? (
                     <StatusAction id={listing.id} to="published" icon="up" label="Publier" />
+                  ) : (
+                    <Link
+                      href="/partenaire/verification"
+                      className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs text-amber-300 transition hover:bg-white/[0.08]"
+                    >
+                      Vérifier pour publier
+                    </Link>
                   )}
                   {listing.status !== "archived" && (
                     <StatusAction id={listing.id} to="archived" icon="archive" label="Archiver" />
@@ -306,13 +347,19 @@ function RequestStatusPill({ status }: { status: string }) {
   );
 }
 
-function StatusPill({ status }: { status: OwnListing["status"] }) {
+/**
+ * `hidden` : publiée mais invisible du public (compte non vérifié, délai de
+ * grâce écoulé ou absent). « En ligne » serait alors trompeur.
+ */
+function StatusPill({ status, hidden }: { status: OwnListing["status"]; hidden: boolean }) {
   const map = {
     published: { label: "En ligne", className: "bg-emerald-500/15 text-emerald-300" },
     draft: { label: "Brouillon", className: "bg-amber-500/15 text-amber-300" },
     archived: { label: "Archivée", className: "bg-slate-500/15 text-slate-400" },
   } as const;
-  const { label, className } = map[status];
+  const { label, className } = hidden
+    ? { label: "Masqué", className: "bg-amber-500/15 text-amber-300" }
+    : map[status];
 
   return (
     <span className={cx("rounded-full px-2 py-0.5 text-[10px] font-medium", className)}>

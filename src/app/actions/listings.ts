@@ -6,6 +6,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { LISTINGS_TAG } from "@/lib/listings";
 import { slugify, type ListingFormState } from "@/lib/listing-form";
+import { verificationErrorCode, verificationErrorMessage } from "@/lib/verification";
 import {
   CATEGORIES,
   CITIES,
@@ -198,6 +199,9 @@ export async function createListing(
     .from("listings")
     .insert({ ...values, slug, owner_id: user.id });
 
+  if (error && verificationErrorCode(error.message) === "verification_required") {
+    return { status: "error", message: verificationErrorMessage(error.message), errors: {} };
+  }
   if (error) {
     console.error("[listings] create failed", error);
     return {
@@ -248,6 +252,9 @@ export async function updateListing(
     .eq("id", listingId)
     .eq("owner_id", user.id);
 
+  if (error && verificationErrorCode(error.message) === "verification_required") {
+    return { status: "error", message: verificationErrorMessage(error.message), errors: {} };
+  }
   if (error) {
     console.error("[listings] update failed", error);
     return {
@@ -290,7 +297,12 @@ export async function setListingStatus(formData: FormData) {
     .eq("id", listingId)
     .eq("owner_id", user.id);
 
-  if (error) console.error("[listings] status update failed", error);
+  if (error) {
+    console.error("[listings] status update failed", error);
+    if (verificationErrorCode(error.message) === "verification_required") {
+      redirect("/partenaire?erreur=verification");
+    }
+  }
 
   revalidatePath("/partenaire");
   revalidateTag(LISTINGS_TAG);

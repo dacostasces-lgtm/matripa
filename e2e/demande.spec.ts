@@ -9,7 +9,7 @@ import { alertBox, gotoReady, uniquePhone } from "./helpers";
  */
 test.describe("Parcours de demande", () => {
   test("une demande valide est acceptée de bout en bout", async ({ page }) => {
-    await page.goto("/");
+    await gotoReady(page, "/");
     await page.locator('a[href^="/annonces/"]').first().click();
     await page.getByRole("link", { name: /Contacter \/ Effectuer une demande/ }).click();
 
@@ -45,6 +45,13 @@ test.describe("Parcours de demande", () => {
   });
 
   test("l'anti-spam coupe après cinq demandes pour un même numéro", async ({ page }) => {
+    // 6 navigations `gotoReady` de suite : chacune attend, au pire, le
+    // règlement réseau borné puis l'hydratation React avant de rendre la
+    // main. Le budget par défaut (30 s, `playwright.config.ts`) devient
+    // insuffisant pour cette suite d'allers-retours ; l'assertion finale
+    // reste inchangée, seul le temps qui lui est laissé augmente.
+    test.setTimeout(60_000);
+
     const phone = uniquePhone();
 
     await page.goto("/");

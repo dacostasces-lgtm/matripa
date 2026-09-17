@@ -57,6 +57,12 @@ export async function startPayment(
     if (error.message.includes("not_eligible")) {
       return { status: "error", message: "Cette demande ne peut pas être réglée." };
     }
+    if (error.message.includes("listing_unavailable")) {
+      return {
+        status: "error",
+        message: "Ce profil n'est plus disponible : le paiement ne peut pas être effectué.",
+      };
+    }
     return { status: "error", message: "L'initiation a échoué. Réessayez." };
   }
 

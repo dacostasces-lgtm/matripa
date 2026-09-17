@@ -27,21 +27,24 @@ insert into auth.users (
   '', '', '', '', '', '', '', '', now(), now(), now()
 );
 
+-- `is_verified = true` : depuis la migration 0011, une annonce publiée n'est
+-- visible, modifiable et joignable que si son compte est vérifié. Insérée en
+-- superutilisateur, la fixture n'est pas soumise au trigger.
 insert into public.listings (
   id, slug, title, description, category, option_type, mobility, city,
-  price_xaf, price_unit, cover_url, status, owner_id
+  price_xaf, price_unit, cover_url, status, owner_id, is_verified
 ) values (
   '22222222-2222-2222-2222-222222222222', 'offre-test', 'Offre de test',
   'Description suffisamment longue pour la validation applicative.',
   'categorie-a', 'option_1', 'sur_place', 'brazzaville',
   50000, 'night', 'https://exemple/cover.jpg', 'published',
-  '11111111-1111-1111-1111-111111111111'
+  '11111111-1111-1111-1111-111111111111', true
 ), (
   '44444444-4444-4444-4444-444444444444', 'offre-brouillon', 'Offre en brouillon',
   'Description suffisamment longue pour la validation applicative.',
   'categorie-b', 'option_2', 'a_domicile', 'pointe-noire',
   30000, 'service', 'https://exemple/cover2.jpg', 'draft',
-  '11111111-1111-1111-1111-111111111111'
+  '11111111-1111-1111-1111-111111111111', false
 );
 
 -- Visibilité publique -------------------------------------------------------

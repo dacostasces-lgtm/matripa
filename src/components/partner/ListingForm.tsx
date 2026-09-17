@@ -3,6 +3,7 @@
 import { useActionState, useCallback, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Image from "next/image";
+import Link from "next/link";
 import { AlertCircle, Clapperboard, ImagePlus, Loader2, Plus, Save, Trash2, X } from "lucide-react";
 
 import { createListing, updateListing } from "@/app/actions/listings";
@@ -64,9 +65,12 @@ function pathFromUrl(url: string): string | null {
 export function ListingForm({
   userId,
   listing,
+  canPublish,
 }: {
   userId: string;
   listing?: EditableListing;
+  /** Compte vérifié, ou annonce déjà publiée encore dans son délai de grâce. */
+  canPublish: boolean;
 }) {
   const isEdit = Boolean(listing);
   const [state, formAction] = useActionState(
@@ -572,23 +576,39 @@ export function ListingForm({
         </span>
       </label>
 
-      <label className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+      <label
+        className={cx(
+          "flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4",
+          !canPublish && "opacity-70",
+        )}
+      >
         <input
           type="checkbox"
           name="publish"
-          defaultChecked={listing ? listing.status === "published" : true}
+          disabled={!canPublish}
+          defaultChecked={canPublish && (listing ? listing.status === "published" : true)}
           className="mt-0.5 size-4 accent-neon"
         />
         <span className="text-sm text-slate-300">
           Publier
           <span className="mt-0.5 block text-xs text-slate-500">
-            Décochez pour repasser en brouillon. Un profil en brouillon n&apos;apparaît pas dans
-            le catalogue.
+            {canPublish
+              ? "Décochez pour repasser en brouillon. Un profil en brouillon n'apparaît pas dans le catalogue."
+              : "Vérifiez votre identité pour publier. D'ici là, le profil est enregistré en brouillon."}
           </span>
         </span>
       </label>
 
-      <SubmitButton disabled={uploading || images.length === 0} isEdit={isEdit} />
+      {!canPublish && (
+        <Link
+          href="/partenaire/verification"
+          className="inline-flex h-10 items-center justify-center rounded-xl border border-amber-300/40 px-4 text-sm font-medium text-amber-100 transition hover:bg-amber-500/10"
+        >
+          Vérifier mon identité
+        </Link>
+      )}
+
+      <SubmitButton disabled={uploading || images.length === 0} isEdit={isEdit} canPublish={canPublish} />
     </form>
   );
 }
@@ -630,7 +650,15 @@ function Field({
   );
 }
 
-function SubmitButton({ disabled, isEdit }: { disabled: boolean; isEdit: boolean }) {
+function SubmitButton({
+  disabled,
+  isEdit,
+  canPublish,
+}: {
+  disabled: boolean;
+  isEdit: boolean;
+  canPublish: boolean;
+}) {
   const { pending } = useFormStatus();
 
   return (
@@ -649,7 +677,7 @@ function SubmitButton({ disabled, isEdit }: { disabled: boolean; isEdit: boolean
       ) : (
         <Save className="size-4" aria-hidden />
       )}
-      {isEdit ? "Enregistrer les modifications" : "Publier le profil"}
+      {isEdit ? "Enregistrer les modifications" : canPublish ? "Publier le profil" : "Enregistrer le brouillon"}
     </button>
   );
 }

@@ -1,11 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BadgeCheck, Crown, MapPin, ShieldCheck , Trash2 } from "lucide-react";
+import { Crown, MapPin, ShieldCheck, Trash2 } from "lucide-react";
 
 import { removeReview, setCertification } from "@/app/actions/admin";
+import { AdminVerificationSection } from "@/components/verification/AdminVerificationSection";
 import { createClient } from "@/lib/supabase/server";
 import { cx, formatXAF, priceUnitLabel } from "@/lib/format";
+import type { RawSearchParams } from "@/lib/filters";
 import { cityLabel, type PriceUnit } from "@/types/listing";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +38,13 @@ interface AdminListing {
   is_verified: boolean;
 }
 
-export default async function AdminPage() {
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<RawSearchParams>;
+}) {
+  const params = await searchParams;
+  const verifiedPage = Math.max(1, Number.parseInt(typeof params.verifies === "string" ? params.verifies : "1", 10) || 1);
   const supabase = await createClient();
 
   // `is_admin()` fait autorité côté base : la même vérification protège
@@ -63,7 +71,6 @@ export default async function AdminPage() {
 
   const listings = data ?? [];
   const reviews = reviewData ?? [];
-  const pending = listings.filter((l) => !l.is_verified).length;
   const titleById = new Map(listings.map((l) => [l.id, l.title]));
 
   return (
@@ -74,12 +81,16 @@ export default async function AdminPage() {
             <ShieldCheck className="size-3.5 text-emerald-400" aria-hidden />
             Administration Matripa
           </span>
-          <h1 className="text-2xl font-semibold tracking-tight text-white">Certification</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-white">Administration</h1>
           <p className="text-sm leading-relaxed text-slate-400">
-            {pending} offre{pending > 1 ? "s" : ""} en attente de vérification sur{" "}
-            {listings.length}.
+            {listings.length} profil{listings.length > 1 ? "s" : ""} au catalogue. Le badge
+            « Certifié » découle de la vérification d&apos;identité du compte.
           </p>
         </header>
+
+        <AdminVerificationSection page={verifiedPage} />
+
+        <h2 className="mb-5 text-xl font-semibold tracking-tight text-white">Mise en avant VIP</h2>
 
         <ul className="space-y-3">
           {listings.map((listing) => (
@@ -112,20 +123,12 @@ export default async function AdminPage() {
               </div>
 
               <div className="flex gap-2">
-                <Toggle
-                  listingId={listing.id}
-                  field="is_verified"
-                  active={listing.is_verified}
-                  label="Vérifié"
-                  icon="check"
-                />
-                <Toggle
-                  listingId={listing.id}
-                  field="is_vip"
-                  active={listing.is_vip}
-                  label="VIP"
-                  icon="crown"
-                />
+                {listing.is_verified && (
+                  <span className="inline-flex h-9 items-center rounded-xl border border-emerald-400/40 bg-emerald-500/20 px-3 text-xs font-medium text-emerald-300">
+                    Certifié
+                  </span>
+                )}
+                <Toggle listingId={listing.id} active={listing.is_vip} label="VIP" />
               </div>
             </li>
           ))}
@@ -198,23 +201,17 @@ export default async function AdminPage() {
 
 function Toggle({
   listingId,
-  field,
   active,
   label,
-  icon,
 }: {
   listingId: string;
-  field: "is_verified" | "is_vip";
   active: boolean;
   label: string;
-  icon: "check" | "crown";
 }) {
-  const Icon = icon === "check" ? BadgeCheck : Crown;
-
   return (
     <form action={setCertification}>
       <input type="hidden" name="listing_id" value={listingId} />
-      <input type="hidden" name="field" value={field} />
+      <input type="hidden" name="field" value="is_vip" />
       {/* On envoie l'état *souhaité*, pas une bascule : deux clics rapides ne
           peuvent pas s'annuler mutuellement. */}
       <input type="hidden" name="value" value={active ? "false" : "true"} />
@@ -224,13 +221,11 @@ function Toggle({
         className={cx(
           "inline-flex h-9 items-center gap-1.5 rounded-xl border px-3 text-xs font-medium transition",
           active
-            ? icon === "check"
-              ? "border-emerald-400/40 bg-emerald-500/20 text-emerald-300"
-              : "border-transparent bg-action text-slate-950"
+            ? "border-transparent bg-action text-slate-950"
             : "border-white/10 bg-white/[0.04] text-slate-400 hover:bg-white/[0.09] hover:text-white",
         )}
       >
-        <Icon className="size-3.5" aria-hidden />
+        <Crown className="size-3.5" aria-hidden />
         {label}
       </button>
     </form>
