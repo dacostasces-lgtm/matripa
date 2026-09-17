@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { revalidatePath, revalidateTag } from "next/cache";
 
@@ -49,7 +50,7 @@ export async function submitReport(
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) redirect(`/connexion?suivant=/signaler/${slug}`);
+  if (!user) redirect(`/connexion?suivant=/signaler/${encodeURIComponent(slug)}`);
 
   const { data, error } = await supabase.rpc("submit_report", {
     p_listing_id: listingId,
@@ -71,18 +72,30 @@ export async function submitReport(
     revalidateTag(LISTINGS_TAG);
     revalidatePath(`/annonces/${slug}`);
 
-    const recipients = parseAlertRecipients(process.env.REPORT_ALERT_EMAILS);
-    if (recipients.length === 0) {
-      console.warn("[reports] REPORT_ALERT_EMAILS absent — alerte non envoyée");
-    } else {
-      await sendReportAlert(recipients, {
-        listingTitle: row.listing_title,
-        city: cityLabel(row.listing_city),
-        reasonLabel: reportReason(reason)?.label ?? reason,
-        reportedAt: new Date().toISOString(),
-        adminUrl: `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/admin`,
-      });
-    }
+    // Capture des valeurs avant d'entrer dans after()
+    const listingTitle = row.listing_title;
+    const city = cityLabel(row.listing_city);
+    const reasonLabel = reportReason(reason)?.label ?? reason;
+    const reportedAt = new Date().toISOString();
+    const adminUrl = `${process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"}/admin`;
+
+    // L'alerte e-mail s'envoie après la réponse : le signaleur ne doit pas attendre
+    // Resend. after() garantit l'exécution une fois la réponse envoyée, contrairement
+    // à une Promise non attendue qui peut ne pas s'exécuter sur serverless.
+    after(async () => {
+      const recipients = parseAlertRecipients(process.env.REPORT_ALERT_EMAILS);
+      if (recipients.length === 0) {
+        console.warn("[reports] REPORT_ALERT_EMAILS absent — alerte non envoyée");
+      } else {
+        await sendReportAlert(recipients, {
+          listingTitle,
+          city,
+          reasonLabel,
+          reportedAt,
+          adminUrl,
+        });
+      }
+    });
   }
 
   return { status: "success", urgent, message: null };

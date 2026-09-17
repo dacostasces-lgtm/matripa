@@ -33,6 +33,8 @@ async function sendEmail(message: {
   }
 
   try {
+    // Timeout de 10 secondes : les alertes ne doivent jamais bloquer une réponse
+    // utilisateur, et Resend doit traiter rapidement. Le catch gère déjà l'abort.
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -46,6 +48,7 @@ async function sendEmail(message: {
         html: message.html,
         reply_to: message.replyTo,
       }),
+      signal: AbortSignal.timeout(10_000),
     });
 
     if (!response.ok) {
