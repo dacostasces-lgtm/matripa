@@ -46,7 +46,8 @@ export function EmergencyDiscretionButton() {
   };
 
   const exitToExternal = () => {
-    window.location.replace("https://www.google.cg");
+    // Redirect to a real news site for discreet exit
+    window.location.href = "https://news.google.com";
   };
 
   return (
@@ -77,7 +78,7 @@ export function EmergencyDiscretionButton() {
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="Portail Congo Tourisme & Économie"
+          aria-label="Mode Discrétion"
           className="fixed inset-0 z-[9999] overflow-y-auto bg-slate-950 text-slate-100 selection:bg-slate-700"
         >
           {/* Barre supérieure du portail leurre */}
@@ -89,10 +90,10 @@ export function EmergencyDiscretionButton() {
                 </div>
                 <div>
                   <span className="block font-semibold text-sm tracking-wide text-white">
-                    Congo Tourisme &amp; Patrimoine
+                    Mode Discrétion
                   </span>
                   <span className="block text-[11px] text-slate-400">
-                    Guide officiel des hébergements et affaires
+                    Accès sécurisé et privé
                   </span>
                 </div>
               </div>
@@ -104,7 +105,7 @@ export function EmergencyDiscretionButton() {
                   className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-700 hover:text-white"
                 >
                   <ExternalLink className="size-3" />
-                  Google
+                  News
                 </button>
                 <button
                   type="button"
@@ -120,17 +121,8 @@ export function EmergencyDiscretionButton() {
           {/* Contenu sobre du leurre */}
           <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
             <div className="mb-8 rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-400">
-                <Newspaper className="size-3" /> Économie &amp; Tourisme · Brazzaville - Pointe-Noire
-              </span>
-              <h1 className="mt-3 text-2xl font-semibold text-white sm:text-3xl">
-                Bilan hôtelier et dynamiques d&apos;accueil au Congo pour 2026
-              </h1>
-              <p className="mt-3 text-sm leading-relaxed text-slate-400">
-                La modernisation des infrastructures d&apos;accueil à Brazzaville et dans la capitale
-                économique Pointe-Noire favorise une hausse des réservations professionnelles et
-                touristiques. Les établissements renforcent leurs standards de confort et de
-                connectivité.
+              <p className="mt-3 text-sm text-slate-400">
+                Vous êtes en mode discrétion. Le contenu a été masqué pour votre confidentialité.
               </p>
             </div>
 
