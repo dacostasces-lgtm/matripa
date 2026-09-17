@@ -6,6 +6,7 @@ import { Archive, CheckCircle2, Eye, EyeOff, Inbox, MapPin, Pencil, Phone, Plus 
 import { setListingStatus } from "@/app/actions/listings";
 import { setRequestStatus } from "@/app/actions/requests";
 import { VerifiedBadge, VipBadge } from "@/components/ui/badges";
+import { SuspensionBanner } from "@/components/reports/SuspensionBanner";
 import { VerificationBanner } from "@/components/verification/VerificationBanner";
 import { createClient } from "@/lib/supabase/server";
 import { graceSummary, isListingHidden } from "@/lib/verification";
@@ -27,6 +28,7 @@ interface OwnListing {
   is_vip: boolean;
   is_verified: boolean;
   verification_grace_until: string | null;
+  suspended_at: string | null;
 }
 
 interface OwnRequest {
@@ -66,7 +68,7 @@ export default async function PartenairePage({
     await Promise.all([
       supabase
         .from("listings")
-        .select("id, slug, title, city, price_xaf, price_unit, cover_url, status, is_vip, is_verified, verification_grace_until")
+        .select("id, slug, title, city, price_xaf, price_unit, cover_url, status, is_vip, is_verified, verification_grace_until, suspended_at")
         .eq("owner_id", user.id)
         .order("created_at", { ascending: false })
         .returns<OwnListing[]>(),
@@ -93,6 +95,7 @@ export default async function PartenairePage({
   const isVerified = verified === true;
   const grace = graceSummary(mine, now);
   const hiddenCount = mine.filter((listing) => isListingHidden(listing, now)).length;
+  const suspendedCount = mine.filter((listing) => listing.suspended_at !== null).length;
 
   return (
     <div className="space-y-10">
@@ -114,6 +117,8 @@ export default async function PartenairePage({
           Vérifiez votre identité avant de publier un profil.
         </p>
       )}
+
+      <SuspensionBanner count={suspendedCount} />
 
       {!isVerified && (
         <VerificationBanner
@@ -155,7 +160,7 @@ export default async function PartenairePage({
 
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <StatusPill status={listing.status} hidden={isListingHidden(listing, now)} />
+                      <StatusPill status={listing.status} hidden={isListingHidden(listing, now)} suspended={listing.suspended_at !== null} />
                       {listing.is_vip && <VipBadge />}
                       {listing.is_verified && <VerifiedBadge />}
                     </div>
@@ -348,18 +353,29 @@ function RequestStatusPill({ status }: { status: string }) {
 }
 
 /**
+ * `suspended` : suspendu après un signalement, prioritaire sur tout le reste.
  * `hidden` : publiée mais invisible du public (compte non vérifié, délai de
  * grâce écoulé ou absent). « En ligne » serait alors trompeur.
  */
-function StatusPill({ status, hidden }: { status: OwnListing["status"]; hidden: boolean }) {
+function StatusPill({
+  status,
+  hidden,
+  suspended,
+}: {
+  status: OwnListing["status"];
+  hidden: boolean;
+  suspended: boolean;
+}) {
   const map = {
     published: { label: "En ligne", className: "bg-emerald-500/15 text-emerald-300" },
     draft: { label: "Brouillon", className: "bg-amber-500/15 text-amber-300" },
     archived: { label: "Archivée", className: "bg-slate-500/15 text-slate-400" },
   } as const;
-  const { label, className } = hidden
-    ? { label: "Masqué", className: "bg-amber-500/15 text-amber-300" }
-    : map[status];
+  const { label, className } = suspended
+    ? { label: "Suspendu", className: "bg-red-500/15 text-red-300" }
+    : hidden
+      ? { label: "Masqué", className: "bg-amber-500/15 text-amber-300" }
+      : map[status];
 
   return (
     <span className={cx("rounded-full px-2 py-0.5 text-[10px] font-medium", className)}>

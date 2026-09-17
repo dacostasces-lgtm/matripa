@@ -38,6 +38,10 @@ export default function ConfidentialitePage() {
             vidéo de vérification (visage, pièce d&apos;identité présentée, code prononcé), type
             de pièce, décision de l&apos;équipe et, le cas échéant, son motif.
           </li>
+          <li>
+            <strong className="text-white">Signalements</strong> — motif, précisions éventuelles
+            et compte à l&apos;origine du signalement.
+          </li>
         </ul>
         <p>
           Aucune donnée de paiement n&apos;est collectée : le service n&apos;encaisse aucun
@@ -62,6 +66,12 @@ export default function ConfidentialitePage() {
           Elle n&apos;est jamais publiée : seule l&apos;équipe de modération Matripa y a accès,
           en lecture par un lien temporaire.
         </p>
+        <p>
+          Les signalements servent à la <strong className="text-white">sécurité de la plateforme
+          et à la protection des personnes</strong>. Seule l&apos;équipe de modération Matripa les
+          consulte ; le profil signalé n&apos;apprend ni le motif ni l&apos;identité de la
+          personne qui signale.
+        </p>
       </Article>
 
       <Article title="Durée de conservation">
@@ -76,6 +86,10 @@ export default function ConfidentialitePage() {
           <li>
             Historique des décisions de vérification (type de pièce, décision, motif) : tant que
             le compte existe.
+          </li>
+          <li>
+            Signalements : conservés pour la sécurité de la plateforme ; le lien avec le compte
+            signaleur est supprimé lorsque ce compte est supprimé.
           </li>
         </ul>
         <p>

@@ -20,7 +20,7 @@ export async function GET() {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const [requests, reviews, listings, verifications] = await Promise.all([
+  const [requests, reviews, listings, verifications, reports] = await Promise.all([
     supabase
       .from("requests")
       .select("id, listing_id, full_name, phone, email, message, desired_date, guests, status, created_at")
@@ -38,6 +38,11 @@ export async function GET() {
       .from("verification_requests")
       .select("id, status, document_type, submitted_at, reviewed_at, rejection_reason, rejection_note, created_at")
       .eq("user_id", user.id),
+    // Sans filtre `reporter_id` : la colonne n'est pas accordée au rôle client,
+    // la filtrer lèverait une erreur de droits. La policy
+    // `listing_reports_self_read` borne déjà le résultat aux signalements du
+    // compte, et c'est la seule policy de lecture de la table.
+    supabase.from("listing_reports").select("id, listing_id, reason, details, created_at"),
   ]);
 
   const payload = {
@@ -52,6 +57,7 @@ export async function GET() {
     avis: reviews.data ?? [],
     offres_publiees: listings.data ?? [],
     verifications_identite: verifications.data ?? [],
+    signalements: reports.data ?? [],
   };
 
   const date = new Date().toISOString().slice(0, 10);
