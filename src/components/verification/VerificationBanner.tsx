@@ -4,6 +4,15 @@ import { ArrowRight, Clock, ShieldAlert } from "lucide-react";
 const dateFr = (date: Date) =>
   date.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
 
+/** Accord singulier/pluriel du message de délai de grâce. */
+function graceMessage(grace: { deadline: Date; count: number }): string {
+  const date = dateFr(grace.deadline);
+  if (grace.count === 1) {
+    return `Votre profil en ligne sera masqué le ${date} sans vérification d'identité.`;
+  }
+  return `Vos ${grace.count} profils en ligne seront masqués le ${date} sans vérification d'identité.`;
+}
+
 /** Affiché sur le tableau de bord tant que le compte n'est pas vérifié. */
 export function VerificationBanner({
   pending,
@@ -17,7 +26,7 @@ export function VerificationBanner({
   const message = pending
     ? "Vérification en cours d'examen."
     : grace
-      ? `Vos ${grace.count} profil${grace.count > 1 ? "s" : ""} en ligne ser${grace.count > 1 ? "ont" : "a"} masqué${grace.count > 1 ? "s" : ""} le ${dateFr(grace.deadline)} sans vérification d'identité.`
+      ? graceMessage(grace)
       : "Vérifiez votre identité pour publier.";
 
   return (
