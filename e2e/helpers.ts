@@ -97,24 +97,39 @@ export const alertBox = (page: Page) => page.locator('p[role="alert"]');
 /**
  * Navigue puis attend l'hydratation.
  *
- * Un clic avant hydratation soumet le formulaire en POST natif : le parcours
- * fonctionne, mais pas celui qu'on veut mesurer, et le résultat devient
- * intermittent.
+ * Un clic avant hydratation soumet le formulaire en POST natif, ou ne fait
+ * rien du tout sur un bouton `type="button"` dont le seul gestionnaire est
+ * posé par React (ex. « Envoyer la vidéo » dans `VerificationUpload`) : le
+ * parcours devient silencieusement un no-op, ou intermittent.
  */
 export async function gotoReady(page: Page, url: string) {
   // Laisse retomber une navigation RSC encore en vol. Après une Server Action,
   // `revalidatePath` déclenche un rafraîchissement du routeur ; naviguer
   // pendant ce temps fait échouer `goto` en `net::ERR_ABORTED`.
-  //
-  // Timeout court sur les deux attentes, et non bloquant : les cartes du fil
-  // sont des `next/link` préchargés au survol/scroll, et leur requête RSC de
-  // préchargement (`?_rsc=...`) reste parfois en vol plusieurs secondes après
-  // une navigation, sans rapport avec l'hydratation de la page courante — sur
-  // les parcours qui enchaînent plusieurs `gotoReady` (boucles, deux acteurs),
-  // cela pouvait consommer à lui seul tout le budget du test.
   await page.waitForLoadState("networkidle", { timeout: 3_000 }).catch(() => {});
   await page.goto(url);
-  await page.waitForLoadState("networkidle", { timeout: 3_000 }).catch(() => {});
+
+  // `networkidle` n'est ici qu'un lissage, pas la garantie : les cartes du
+  // fil sont des `next/link` préchargés au survol/scroll, et leur requête RSC
+  // de préchargement (`?_rsc=...`) reste parfois en vol plusieurs secondes
+  // après une navigation, sans rapport avec l'hydratation de la page
+  // courante. Un timeout non borné pouvait à lui seul consommer tout le
+  // budget d'un test qui enchaîne plusieurs `gotoReady` (boucles, deux
+  // acteurs) ; le timeout est donc court et l'échec silencieusement ignoré.
+  await page.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => {});
+
+  // La vraie garantie de fraîcheur n'est pas `networkidle` mais l'hydratation
+  // React elle-même : React pose une clé `__reactFiber$…` sur chaque nœud DOM
+  // dont le sous-arbre a fini de s'hydrater, et `completeWork` remonte du bas
+  // vers le haut — quand `document.body` la porte, tout son sous-arbre est
+  // hydraté, contrôles interactifs compris. Contrairement aux attentes
+  // ci-dessus, celle-ci n'est pas avalée : si la page ne s'hydrate jamais,
+  // le test doit échouer plutôt que de cliquer dans le vide.
+  await page.waitForFunction(
+    () => Object.keys(document.body).some((key) => key.startsWith("__reactFiber$")),
+    undefined,
+    { timeout: 15_000 },
+  );
 }
 
 /**
