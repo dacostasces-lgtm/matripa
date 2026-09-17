@@ -27,7 +27,7 @@ insert into auth.users (
   '', '', '', '', '', '', '', '', now(), now(), now()
 );
 
--- `is_verified = true` : depuis la migration 0010, une annonce publiée n'est
+-- `is_verified = true` : depuis la migration 0011, une annonce publiée n'est
 -- visible, modifiable et joignable que si son compte est vérifié. Insérée en
 -- superutilisateur, la fixture n'est pas soumise au trigger.
 insert into public.listings (

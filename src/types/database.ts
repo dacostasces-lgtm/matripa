@@ -263,9 +263,9 @@ export interface Database {
       request_status: RequestStatus;
       payment_status: PaymentStatus;
       payment_provider: PaymentProvider;
-      verification_status: VerificationStatus;
-      verification_document: VerificationDocument;
-      verification_rejection: VerificationRejection;
+      identity_verification_status: VerificationStatus;
+      identity_document_type: VerificationDocument;
+      identity_rejection_reason: VerificationRejection;
     };
     CompositeTypes: Record<never, never>;
   };

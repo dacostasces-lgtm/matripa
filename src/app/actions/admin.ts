@@ -19,7 +19,7 @@ import { isRejectionReason, isVerificationDecision } from "@/types/verification"
  * Mise en avant VIP d'une annonce.
  *
  * Le badge « Certifié » n'est plus modifiable ici : il découle de la
- * vérification d'identité du compte (migration 0010).
+ * vérification d'identité du compte (migration 0011).
  */
 export async function setCertification(formData: FormData) {
   const listingId = formData.get("listing_id");

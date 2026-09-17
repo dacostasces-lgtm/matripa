@@ -18,7 +18,7 @@ export const MAX_VIDEO_SECONDS = 20;
 
 export const ORPHAN_VIDEO_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
-/** Doit rester aligné sur `allowed_mime_types` du bucket (migration 0010). */
+/** Doit rester aligné sur `allowed_mime_types` du bucket (migration 0011). */
 const VIDEO_EXTENSIONS: Record<string, string> = {
   "video/mp4": "mp4",
   "video/quicktime": "mov",

@@ -1,7 +1,7 @@
 /**
  * Domaine de la vérification d'identité.
  *
- * Les slugs reprennent à l'identique les enums Postgres de la migration 0010 ;
+ * Les slugs reprennent à l'identique les enums Postgres de la migration 0011 ;
  * les libellés sont centralisés ici, comme ceux des annonces dans `listing.ts`.
  */
 

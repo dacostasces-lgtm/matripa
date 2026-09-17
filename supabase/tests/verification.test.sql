@@ -471,7 +471,7 @@ select is(
 select ok(
   not has_function_privilege(
     'anon',
-    'public.review_verification(uuid,text,verification_rejection,text)',
+    'public.review_verification(uuid,text,identity_rejection_reason,text)',
     'EXECUTE'),
   'le rôle anon ne peut pas appeler review_verification'
 );

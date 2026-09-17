@@ -49,7 +49,7 @@ on conflict (slug) do update set
 
 end $$;
 
--- Vérification d'identité (migration 0010) --------------------------------
+-- Vérification d'identité (migration 0011) --------------------------------
 -- Aucune annonce de démonstration n'a fait l'objet d'une vérification : elles
 -- ne portent pas le badge et ne restent visibles que pendant un délai de
 -- grâce, recalculé à chaque `db reset` pour que la stack locale affiche un

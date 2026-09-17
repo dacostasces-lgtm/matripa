@@ -18,7 +18,7 @@ export default async function globalSetup() {
 
   // `db reset` recrée le schéma storage : le bucket doit être reposé, sinon
   // tout téléversement échoue en 404. Le bucket `verifications`, lui, est créé
-  // par la migration 0010.
+  // par la migration 0011.
   execFileSync("curl", [
     "-s", "-o", "/dev/null",
     "-X", "POST", `${API}/storage/v1/bucket`,

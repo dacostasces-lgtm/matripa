@@ -135,7 +135,7 @@ export async function gotoReady(page: Page, url: string) {
 /**
  * Inscription d'un partenaire ; en local la confirmation e-mail est désactivée.
  *
- * Vérifié par défaut : depuis la migration 0010, publier exige un compte
+ * Vérifié par défaut : depuis la migration 0011, publier exige un compte
  * vérifié, et la plupart des scénarios ne portent pas sur la vérification.
  */
 export async function signUpPartner(

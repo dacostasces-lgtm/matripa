@@ -62,7 +62,7 @@ src/
   types/{listing,database}.ts
 e2e/                             Playwright (parcours réels, navigateur)
 supabase/
-  migrations/                    0001 → 0010
+  migrations/                    0001 → 0011
   tests/security.test.sql        pgTAP
   seed.sql
 ```
@@ -337,7 +337,7 @@ Reste que la latence vers l'edge Vercel depuis l'Afrique centrale est élevée e
 
 1. `supabase db push` (ou appliquer `migrations/` puis `seed.sql`)
 
-   La migration 0010 crée le bucket privé `verifications` et place toutes les annonces publiées en délai de grâce de 7 jours.
+   La migration 0011 crée le bucket privé `verifications` et place toutes les annonces publiées en délai de grâce de 7 jours.
 2. Variables d'environnement — voir `.env.example`
 3. Configurer le webhook :
    ```sql

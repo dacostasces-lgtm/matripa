@@ -20,7 +20,7 @@
 /*                                   Types                                    */
 /* -------------------------------------------------------------------------- */
 
-create type public.verification_status as enum (
+create type public.identity_verification_status as enum (
   'awaiting_video',  -- code émis, vidéo pas encore soumise
   'pending',         -- vidéo soumise, en attente d'examen
   'approved',
@@ -28,9 +28,9 @@ create type public.verification_status as enum (
   'revoked'          -- approbation retirée a posteriori
 );
 
-create type public.verification_document as enum ('cni', 'passeport', 'carte_consulaire');
+create type public.identity_document_type as enum ('cni', 'passeport', 'carte_consulaire');
 
-create type public.verification_rejection as enum (
+create type public.identity_rejection_reason as enum (
   'video_illisible',
   'piece_non_visible',
   'code_absent_ou_faux',
@@ -46,16 +46,16 @@ create table public.verification_requests (
   -- Sert aussi de nom de fichier : `<user_id>/<id>.<ext>`.
   id               uuid primary key default gen_random_uuid(),
   user_id          uuid not null references auth.users (id) on delete cascade,
-  status           public.verification_status not null default 'awaiting_video',
+  status           public.identity_verification_status not null default 'awaiting_video',
   challenge_code   text not null,
   code_expires_at  timestamptz not null default now() + interval '30 minutes',
-  document_type    public.verification_document,
+  document_type    public.identity_document_type,
   -- Remis à null une fois le fichier supprimé du bucket.
   video_path       text,
   submitted_at     timestamptz,
   reviewed_by      uuid references auth.users (id) on delete set null,
   reviewed_at      timestamptz,
-  rejection_reason public.verification_rejection,
+  rejection_reason public.identity_rejection_reason,
   rejection_note   text check (rejection_note is null or char_length(rejection_note) <= 300),
   created_at       timestamptz not null default now(),
 
@@ -408,7 +408,7 @@ $$;
 
 create or replace function public.submit_verification(
   p_id         uuid,
-  p_document   public.verification_document,
+  p_document   public.identity_document_type,
   p_video_path text
 ) returns void
 language plpgsql
@@ -458,7 +458,7 @@ $$;
 create or replace function public.review_verification(
   p_id       uuid,
   p_decision text,
-  p_reason   public.verification_rejection default null,
+  p_reason   public.identity_rejection_reason default null,
   p_note     text default null
 ) returns text
 language plpgsql
@@ -577,13 +577,13 @@ $$;
 
 -- PostgreSQL accorde EXECUTE à PUBLIC par défaut : on le retire explicitement.
 revoke execute on function public.start_verification() from public, anon;
-revoke execute on function public.submit_verification(uuid, public.verification_document, text) from public, anon;
-revoke execute on function public.review_verification(uuid, text, public.verification_rejection, text) from public, anon;
+revoke execute on function public.submit_verification(uuid, public.identity_document_type, text) from public, anon;
+revoke execute on function public.review_verification(uuid, text, public.identity_rejection_reason, text) from public, anon;
 revoke execute on function public.clear_verification_video(uuid) from public, anon;
 
 grant execute on function public.start_verification() to authenticated;
-grant execute on function public.submit_verification(uuid, public.verification_document, text) to authenticated;
-grant execute on function public.review_verification(uuid, text, public.verification_rejection, text) to authenticated;
+grant execute on function public.submit_verification(uuid, public.identity_document_type, text) to authenticated;
+grant execute on function public.review_verification(uuid, text, public.identity_rejection_reason, text) to authenticated;
 grant execute on function public.clear_verification_video(uuid) to authenticated;
 
 /* -------------------------------------------------------------------------- */
