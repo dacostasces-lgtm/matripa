@@ -2,8 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import Link from "next/link";
-import { AlertCircle, CheckCircle2, Flag, Loader2 } from "lucide-react";
+import { AlertCircle, Flag, Loader2 } from "lucide-react";
 
 import { submitReport } from "@/app/actions/reports";
 import { INITIAL_REPORT_STATE, MAX_REPORT_DETAILS } from "@/lib/reports";
@@ -11,35 +10,6 @@ import { REPORT_REASONS } from "@/types/reports";
 
 export function ReportForm({ listingId, listingSlug }: { listingId: string; listingSlug: string }) {
   const [state, formAction] = useActionState(submitReport, INITIAL_REPORT_STATE);
-
-  if (state.status === "success") {
-    return (
-      <div
-        role="status"
-        className="flex flex-col items-center gap-4 rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-6 py-12 text-center"
-      >
-        <CheckCircle2 className="size-10 text-emerald-400" aria-hidden />
-        <div className="space-y-2">
-          <h2 className="text-lg font-semibold text-white">Signalement transmis</h2>
-          <p className="text-sm text-slate-300">
-            Merci. Votre signalement a été transmis à l&apos;équipe Matripa.
-          </p>
-          {state.urgent && (
-            <p className="text-sm font-medium text-amber-200">
-              Si une personne est en danger immédiat, contactez sans attendre la police ou les
-              services d&apos;urgence.
-            </p>
-          )}
-        </div>
-        <Link
-          href="/"
-          className="inline-flex h-10 items-center rounded-xl border border-white/15 bg-white/[0.06] px-5 text-sm font-medium text-white transition hover:bg-white/[0.12]"
-        >
-          Retour aux profils
-        </Link>
-      </div>
-    );
-  }
 
   return (
     <form action={formAction} className="space-y-6">

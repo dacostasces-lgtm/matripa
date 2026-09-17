@@ -98,7 +98,13 @@ export async function submitReport(
     });
   }
 
-  return { status: "success", urgent, message: null };
+  // La confirmation vit sur sa propre route : un signalement urgent suspend
+  // le profil immédiatement, ce qui rendrait `/signaler/[slug]` lui-même
+  // inaccessible (404 RLS) au rafraîchissement automatique de route que
+  // Next.js déclenche après toute Server Action. `redirect` doit être appelé
+  // hors de tout try/catch — il agit en lançant une exception de contrôle de
+  // flux — et seulement après l'enregistrement de `after(...)` ci-dessus.
+  redirect(`/signaler/merci${urgent ? "?urgent=1" : ""}`);
 }
 
 /**

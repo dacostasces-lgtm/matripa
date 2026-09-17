@@ -64,6 +64,7 @@ test.describe("Signalement d'annonces", () => {
     await reporter.getByRole("radio", { name: /Personne mineure présumée/ }).check();
     await reporter.getByLabel("Précisions").fill("Le profil semble concerner une adolescente.");
     await reporter.getByRole("button", { name: "Envoyer le signalement" }).click();
+    await reporter.waitForURL("**/signaler/merci?urgent=1", { timeout: 15_000 });
     await expect(reporter.getByRole("heading", { name: "Signalement transmis" })).toBeVisible();
 
     await gotoReady(reporter, `/?city=${CITY}`);
