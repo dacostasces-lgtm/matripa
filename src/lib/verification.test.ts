@@ -5,6 +5,7 @@ import {
   completeRows,
   graceSummary,
   hasAllApprovalChecks,
+  isListingHidden,
   MAX_VIDEO_BYTES,
   planVideoPurge,
   verificationErrorCode,
@@ -122,6 +123,30 @@ describe("graceSummary", () => {
 
   it("renvoie null sans annonce en délai de grâce", () => {
     expect(graceSummary([], NOW)).toBeNull();
+  });
+});
+
+describe("isListingHidden", () => {
+  const inTwoDays = new Date(NOW.getTime() + 2 * 86_400_000).toISOString();
+
+  it("ne masque pas une annonce vérifiée", () => {
+    expect(isListingHidden({ status: "published", is_verified: true, verification_grace_until: null }, NOW)).toBe(false);
+  });
+
+  it("ne masque pas une annonce encore en délai de grâce", () => {
+    expect(isListingHidden({ status: "published", is_verified: false, verification_grace_until: inTwoDays }, NOW)).toBe(false);
+  });
+
+  it("masque une annonce dont le délai de grâce est écoulé", () => {
+    expect(isListingHidden({ status: "published", is_verified: false, verification_grace_until: hoursAgo(1) }, NOW)).toBe(true);
+  });
+
+  it("masque une annonce publiée non vérifiée sans délai de grâce", () => {
+    expect(isListingHidden({ status: "published", is_verified: false, verification_grace_until: null }, NOW)).toBe(true);
+  });
+
+  it("ne considère pas un brouillon comme masqué", () => {
+    expect(isListingHidden({ status: "draft", is_verified: false, verification_grace_until: null }, NOW)).toBe(false);
   });
 });
 

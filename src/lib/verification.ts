@@ -127,9 +127,21 @@ export function verificationView(latest: LatestVerification | null, now: Date): 
   }
 }
 
+type ListingVisibility = { status: string; is_verified: boolean; verification_grace_until: string | null };
+
+/**
+ * Annonce publiée que le catalogue ne montre pas : même règle que la policy
+ * `listings_public_read` (`is_verified or verification_grace_until > now()`).
+ */
+export function isListingHidden(listing: ListingVisibility, now: Date): boolean {
+  const inGrace =
+    listing.verification_grace_until !== null && new Date(listing.verification_grace_until) > now;
+  return listing.status === "published" && !listing.is_verified && !inGrace;
+}
+
 /** Plus proche échéance de masquage parmi les annonces encore en délai de grâce. */
 export function graceSummary(
-  listings: { status: string; is_verified: boolean; verification_grace_until: string | null }[],
+  listings: ListingVisibility[],
   now: Date,
 ): { deadline: Date; count: number } | null {
   const deadlines = listings

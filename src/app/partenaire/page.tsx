@@ -8,7 +8,7 @@ import { setRequestStatus } from "@/app/actions/requests";
 import { VerifiedBadge, VipBadge } from "@/components/ui/badges";
 import { VerificationBanner } from "@/components/verification/VerificationBanner";
 import { createClient } from "@/lib/supabase/server";
-import { graceSummary } from "@/lib/verification";
+import { graceSummary, isListingHidden } from "@/lib/verification";
 import { cx, formatXAF, priceUnitLabel } from "@/lib/format";
 import { cityLabel, type PriceUnit } from "@/types/listing";
 import type { RawSearchParams } from "@/lib/filters";
@@ -92,6 +92,7 @@ export default async function PartenairePage({
   const now = new Date();
   const isVerified = verified === true;
   const grace = graceSummary(mine, now);
+  const hiddenCount = mine.filter((listing) => isListingHidden(listing, now)).length;
 
   return (
     <div className="space-y-10">
@@ -115,7 +116,11 @@ export default async function PartenairePage({
       )}
 
       {!isVerified && (
-        <VerificationBanner pending={latestVerification?.status === "pending"} grace={grace} />
+        <VerificationBanner
+          pending={latestVerification?.status === "pending"}
+          grace={grace}
+          hiddenCount={hiddenCount}
+        />
       )}
 
       <section className="space-y-4">
@@ -150,7 +155,7 @@ export default async function PartenairePage({
 
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <StatusPill status={listing.status} />
+                      <StatusPill status={listing.status} hidden={isListingHidden(listing, now)} />
                       {listing.is_vip && <VipBadge />}
                       {listing.is_verified && <VerifiedBadge />}
                     </div>
@@ -342,13 +347,19 @@ function RequestStatusPill({ status }: { status: string }) {
   );
 }
 
-function StatusPill({ status }: { status: OwnListing["status"] }) {
+/**
+ * `hidden` : publiée mais invisible du public (compte non vérifié, délai de
+ * grâce écoulé ou absent). « En ligne » serait alors trompeur.
+ */
+function StatusPill({ status, hidden }: { status: OwnListing["status"]; hidden: boolean }) {
   const map = {
     published: { label: "En ligne", className: "bg-emerald-500/15 text-emerald-300" },
     draft: { label: "Brouillon", className: "bg-amber-500/15 text-amber-300" },
     archived: { label: "Archivée", className: "bg-slate-500/15 text-slate-400" },
   } as const;
-  const { label, className } = map[status];
+  const { label, className } = hidden
+    ? { label: "Masqué", className: "bg-amber-500/15 text-amber-300" }
+    : map[status];
 
   return (
     <span className={cx("rounded-full px-2 py-0.5 text-[10px] font-medium", className)}>

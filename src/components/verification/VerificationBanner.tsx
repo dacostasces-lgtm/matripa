@@ -13,13 +13,27 @@ function graceMessage(grace: { deadline: Date; count: number }): string {
   return `Vos ${grace.count} profils en ligne seront masqués le ${date} sans vérification d'identité.`;
 }
 
-/** Affiché sur le tableau de bord tant que le compte n'est pas vérifié. */
+/** Accord singulier/pluriel du message de profils déjà masqués. */
+function hiddenMessage(count: number): string {
+  if (count === 1) {
+    return "Votre profil est masqué du catalogue : vérifiez votre identité pour le remettre en ligne.";
+  }
+  return `Vos ${count} profils sont masqués du catalogue : vérifiez votre identité pour les remettre en ligne.`;
+}
+
+/**
+ * Affiché sur le tableau de bord tant que le compte n'est pas vérifié.
+ * Priorité : examen en cours, puis échéance de grâce à venir, puis profils
+ * déjà masqués, puis invitation générale.
+ */
 export function VerificationBanner({
   pending,
   grace,
+  hiddenCount,
 }: {
   pending: boolean;
   grace: { deadline: Date; count: number } | null;
+  hiddenCount: number;
 }) {
   const Icon = pending ? Clock : ShieldAlert;
 
@@ -27,7 +41,9 @@ export function VerificationBanner({
     ? "Vérification en cours d'examen."
     : grace
       ? graceMessage(grace)
-      : "Vérifiez votre identité pour publier.";
+      : hiddenCount > 0
+        ? hiddenMessage(hiddenCount)
+        : "Vérifiez votre identité pour publier.";
 
   return (
     <div
