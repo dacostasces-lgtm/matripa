@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: "Conditions générales d'utilisation
 
 export default function CguPage() {
   return (
-    <LegalPage title="Conditions générales d'utilisation" updatedAt="11 septembre 2026">
+    <LegalPage title="Conditions générales d'utilisation" updatedAt="17 septembre 2026">
       <Article title="1. Objet">
         <p>
           Les présentes conditions régissent l&apos;accès et l&apos;usage de la plateforme
@@ -56,11 +56,17 @@ export default function CguPage() {
         </ul>
       </Article>
 
-      <Article title="6. Badges « Vérifié » et « VIP »">
+      <Article title="6. Vérification d'identité, badges « Certifié » et « VIP »">
         <p>
-          Le badge <strong className="text-white">Vérifié</strong> est attribué par
-          l&apos;équipe Matripa après contrôle. Il n&apos;est pas modifiable par l&apos;annonceur et
-          ne constitue pas une garantie de la qualité de la prestation.
+          La publication d&apos;un profil exige une{" "}
+          <strong className="text-white">vérification d&apos;identité par vidéo</strong>, examinée
+          par l&apos;équipe Matripa. Le badge <strong className="text-white">Certifié</strong> en
+          découle automatiquement : il n&apos;est pas modifiable par l&apos;annonceur, peut être
+          retiré par l&apos;équipe et ne constitue pas une garantie de la qualité de la prestation.
+        </p>
+        <p>
+          Un constat de minorité entraîne l&apos;archivage de tous les profils du compte et le
+          blocage de celui-ci.
         </p>
         <p>
           La mise en avant <strong className="text-white">VIP</strong> relève d&apos;un choix
