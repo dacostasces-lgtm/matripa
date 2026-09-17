@@ -15,6 +15,8 @@ export default async function NouvelleAnnoncePage() {
   // `userId` si le middleware venait à ne pas s'appliquer à cette route.
   if (!user) redirect("/connexion?suivant=/partenaire/annonces/nouvelle");
 
+  const { data: verified } = await supabase.rpc("is_account_verified", { p_user_id: user.id });
+
   return (
     <div className="mx-auto w-full max-w-2xl">
       <Link
@@ -27,12 +29,12 @@ export default async function NouvelleAnnoncePage() {
 
       <h1 className="text-2xl font-semibold tracking-tight text-white">Nouveau profil</h1>
       <p className="mb-8 mt-1.5 text-sm leading-relaxed text-slate-400">
-        Les champs marqués d&apos;un astérisque sont obligatoires. La certification
-        « Vérifié » et la mise en avant VIP sont attribuées après contrôle par l&apos;équipe
-        Matripa.
+        Les champs marqués d&apos;un astérisque sont obligatoires. Le badge « Certifié » est
+        attribué automatiquement une fois votre identité vérifiée ; la mise en avant VIP relève
+        de l&apos;équipe Matripa.
       </p>
 
-      <ListingForm userId={user.id} />
+      <ListingForm userId={user.id} canPublish={verified === true} />
     </div>
   );
 }

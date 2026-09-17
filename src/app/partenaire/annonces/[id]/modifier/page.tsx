@@ -29,13 +29,19 @@ export default async function ModifierAnnoncePage({
       // La projection est explicite : toute colonne oubliée ici arriverait
       // vide dans le formulaire et serait *effacée* à l'enregistrement, le
       // `update` réécrivant l'ensemble des champs.
-      "id, slug, title, highlight, description, category, option_type, mobility, city, district, price_xaf, price_unit, rates, cover_url, images, video_url, amenities, is_available_now, languages, availability, status",
+      "id, slug, title, highlight, description, category, option_type, mobility, city, district, price_xaf, price_unit, rates, cover_url, images, video_url, amenities, is_available_now, languages, availability, status, verification_grace_until",
     )
     .eq("id", id)
     .eq("owner_id", user.id)
-    .maybeSingle<EditableListing>();
+    .maybeSingle<EditableListing & { verification_grace_until: string | null }>();
 
   if (!listing) notFound();
+
+  const { data: verified } = await supabase.rpc("is_account_verified", { p_user_id: user.id });
+  const inGrace =
+    listing.status === "published" &&
+    listing.verification_grace_until !== null &&
+    new Date(listing.verification_grace_until) > new Date();
 
   return (
     <div className="mx-auto w-full max-w-2xl">
@@ -63,7 +69,7 @@ export default async function ModifierAnnoncePage({
         titre.
       </p>
 
-      <ListingForm userId={user.id} listing={listing} />
+      <ListingForm userId={user.id} listing={listing} canPublish={verified === true || inGrace} />
     </div>
   );
 }
