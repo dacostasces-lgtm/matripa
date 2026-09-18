@@ -155,6 +155,38 @@ Les pages `/cgu`, `/confidentialite` et `/mentions-legales` sont des **modèles*
 
 ---
 
+## Connexion Google, Facebook et WhatsApp
+
+Trois boutons s'affichent en haut de `/connexion`, avant le formulaire e-mail. **Chacun n'apparaît que si son fournisseur est activé** : un bouton sans configuration mènerait à une page d'erreur.
+
+| Fournisseur | Variable (Vercel, environnement Production) | Mécanisme |
+|---|---|---|
+| Google | `NEXT_PUBLIC_AUTH_GOOGLE=1` | OAuth, retour par `/auth/callback` |
+| Facebook | `NEXT_PUBLIC_AUTH_FACEBOOK=1` | OAuth, retour par `/auth/callback` |
+| WhatsApp | `NEXT_PUBLIC_AUTH_WHATSAPP=1` | Code à usage unique envoyé par WhatsApp (connexion par téléphone de Supabase, via Twilio) |
+
+Ces variables sont figées au moment du build : **après les avoir modifiées, redéployer** sur Vercel.
+
+### Mise en place
+
+1. **Supabase → Authentication → URL Configuration** : ajouter `https://matripa-rouge.vercel.app/**` aux « Redirect URLs ».
+2. **Google** : Google Cloud Console → APIs & Services → Credentials → « OAuth client ID » (type Web). URI de redirection autorisée : `https://<projet>.supabase.co/auth/v1/callback`. Coller l'identifiant et le secret dans Supabase → Authentication → Providers → Google.
+3. **Facebook** : developers.facebook.com → créer une application → produit « Facebook Login ». URI de redirection OAuth valide : la même adresse `…/auth/v1/callback`. Coller l'ID et le secret dans Supabase → Providers → Facebook, puis passer l'application en mode « Live » (revue Meta).
+4. **WhatsApp** : un compte Twilio avec un expéditeur WhatsApp validé par Meta. Dans Supabase → Providers → Phone, choisir Twilio et renseigner le compte, puis activer l'envoi par WhatsApp.
+5. Mettre la variable du fournisseur à `1` sur Vercel et redéployer.
+
+> **Politique de Meta.** Facebook et WhatsApp interdisent les services sexuels tarifés et les « services pour adultes ». La revue de l'application Facebook et la validation de l'expéditeur WhatsApp peuvent être refusées, ou le compte suspendu ensuite. Dans ce cas, laisser la variable à `0` : le bouton reste caché.
+
+### Comptes créés par WhatsApp
+
+Ils n'ont ni e-mail ni mot de passe.
+
+- **Suppression du compte** : la confirmation se fait en retapant le numéro de téléphone (au lieu de l'e-mail), quel que soit son format de saisie.
+- **Mon compte** : le lien « Changer mon mot de passe » est remplacé par une explication.
+- **Alertes « nouvelle demande »** : elles partent par e-mail et ne parviennent pas à ces partenaires ; un avertissement le signale sur leur tableau de bord.
+
+---
+
 ## Paiement mobile money (pawaPay)
 
 Le Congo est couvert par deux opérateurs — `MTN_MOMO_COG` et `AIRTEL_COG` — en **XAF sans décimales**, ce qui coïncide avec `price_xaf` déjà stocké en entier : aucune conversion.

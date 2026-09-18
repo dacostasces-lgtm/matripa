@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { LISTINGS_TAG } from "@/lib/listings";
 import type { AuthFormState } from "@/lib/auth-form";
+import { accountIdentifier, matchesAccountIdentifier } from "@/lib/auth-providers";
 
 /**
  * Suppression définitive du compte.
@@ -26,7 +27,7 @@ export async function deleteMyAccount(
   _prev: AuthFormState,
   formData: FormData,
 ): Promise<AuthFormState> {
-  const confirmation = String(formData.get("confirmation") ?? "").trim().toLowerCase();
+  const confirmation = String(formData.get("confirmation") ?? "");
 
   const supabase = await createClient();
   const {
@@ -35,10 +36,15 @@ export async function deleteMyAccount(
 
   if (!user) redirect("/connexion?suivant=/compte");
 
-  if (confirmation !== (user.email ?? "").toLowerCase()) {
+  // Un compte créé par WhatsApp n'a pas d'e-mail : il confirme avec son numéro.
+  const identifier = accountIdentifier(user);
+  if (!matchesAccountIdentifier(identifier, confirmation)) {
     return {
       status: "error",
-      message: "Saisissez exactement l'adresse e-mail de votre compte pour confirmer.",
+      message:
+        identifier?.kind === "phone"
+          ? "Saisissez exactement le numéro de téléphone de votre compte pour confirmer."
+          : "Saisissez exactement l'adresse e-mail de votre compte pour confirmer.",
     };
   }
 
