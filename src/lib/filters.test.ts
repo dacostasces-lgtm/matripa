@@ -92,7 +92,7 @@ describe("serializeFilters", () => {
 
   it("fait un aller-retour fidèle avec parseFilters", () => {
     const filters = parseFilters({
-      city: "dolisie",
+      city: "pointe-noire",
       category: "categorie-c",
       mobility: "les_deux",
       price_max: "75000",

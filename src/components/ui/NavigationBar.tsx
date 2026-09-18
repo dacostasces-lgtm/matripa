@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Inbox, LayoutGrid, Plus, UserRound, type LucideIcon } from "lucide-react";
+import { Heart, LayoutGrid, Plus, UserRound, type LucideIcon } from "lucide-react";
 
 import { cx } from "@/lib/format";
 
@@ -26,10 +26,10 @@ const TABS: Tab[] = [
     isActive: (p) => p === "/" || p.startsWith("/annonces") || p.startsWith("/demande"),
   },
   {
-    href: "/mes-demandes",
-    label: "Demandes",
-    icon: Inbox,
-    isActive: (p) => p.startsWith("/mes-demandes"),
+    href: "/favoris",
+    label: "Favoris",
+    icon: Heart,
+    isActive: (p) => p.startsWith("/favoris"),
   },
   {
     href: "/compte",
@@ -55,7 +55,7 @@ const TABS: Tab[] = [
 export function NavigationBar() {
   const pathname = usePathname();
   const onListing = pathname.startsWith("/annonces/");
-  const publishing = pathname.startsWith("/partenaire");
+  const publishing = pathname.startsWith("/publier");
 
   return (
     <nav
@@ -80,11 +80,13 @@ export function NavigationBar() {
                     "relative flex h-14 w-[clamp(3.75rem,19vw,4.75rem)] flex-col items-center justify-center gap-1 rounded-full pb-2",
                     "text-[11px] font-medium leading-none transition-colors",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon/70",
-                    active ? "text-gold-soft" : "text-slate-400 hover:text-white",
+                    active
+                      ? "text-gold-soft drop-shadow-[0_0_10px_rgb(255_61_129/0.7)]"
+                      : "text-slate-400 hover:text-white",
                   )}
                 >
                   <Icon
-                    className={cx("size-5", active && "text-gold")}
+                    className={cx("size-5", active && "text-gold drop-shadow-[0_0_8px_rgb(255_61_129/0.9)]")}
                     strokeWidth={active ? 2.25 : 1.75}
                     aria-hidden
                   />
@@ -104,12 +106,12 @@ export function NavigationBar() {
         <span aria-hidden className="mx-1.5 h-8 w-px bg-white/10" />
 
         <Link
-          href="/partenaire"
+          href="/publier"
           aria-current={publishing ? "page" : undefined}
           aria-label="Publier une annonce"
           title="Publier une annonce"
           className={cx(
-            "grid size-14 place-items-center rounded-full bg-action text-slate-950",
+            "grid size-14 place-items-center rounded-full bg-gradient-to-br from-gold via-gold-soft to-neon text-slate-950",
             "shadow-[0_8px_28px_-6px_rgb(233_200_119/0.6)] transition active:scale-95 hover:brightness-110",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon/70 focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
             "sm:flex sm:w-auto sm:gap-2 sm:px-5 sm:text-sm sm:font-semibold",

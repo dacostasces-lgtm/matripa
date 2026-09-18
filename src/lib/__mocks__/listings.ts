@@ -1,6 +1,5 @@
 // src/lib/__mocks__/listings.ts
 
-import { CITIES, CATEGORIES, OPTION_TYPES, MOBILITIES } from "@/types/listing";
 import { User, UserRole, Listing, ListingCardData } from "@/types";
 import { v4 as uuidv4 } from "uuid";
 
@@ -44,7 +43,7 @@ export const MOCK_LISTINGS: Listing[] = [
     title: "Mireille, 23 ans",
     highlight: "Massage sensuel & relaxation",
     description: "Massage sensuel & relaxation, dans un cadre raffiné et discret à Bacongo.",
-    category: "categorie-c" as const,
+    category: "categorie-b" as const,
     option_type: "option_2" as const,
     mobility: "les_deux" as const,
     city: "brazzaville" as const,
@@ -76,12 +75,12 @@ export const MOCK_LISTINGS: Listing[] = [
     title: "Sonia, 25 ans",
     highlight: "Accompagnement VIP & Soirées",
     description: "Accompagnement d'exception pour vos soirées et événements à Pointe-Noire.",
-    category: "categorie-b" as const,
+    category: "categorie-c" as const,
     option_type: "option_1" as const,
     mobility: "a_domicile" as const,
     city: "pointe-noire" as const,
     district: "centre",
-    price_xaf: 50_000,
+    price_xaf: 25_000,
     price_unit: "service",
     rates: [],
     cover_url: "https://picsum.photos/seed/sonia-25/800/600",
@@ -112,7 +111,7 @@ export const MOCK_LISTINGS: Listing[] = [
     mobility: "sur_place" as const,
     city: "brazzaville" as const,
     district: "kintélé",
-    price_xaf: 30_000,
+    price_xaf: 25_000,
     price_unit: "service",
     rates: [],
     cover_url: "https://picsum.photos/seed/grace-22/800/600",
@@ -138,12 +137,12 @@ export const MOCK_LISTINGS: Listing[] = [
     title: "Chantal, 24 ans",
     highlight: "Massage thérapeutique & détente",
     description: "Massage thérapeutique délassant pour soulager le stress et la fatigue.",
-    category: "categorie-c" as const,
+    category: "categorie-b" as const,
     option_type: "option_1" as const,
     mobility: "les_deux" as const,
     city: "brazzaville" as const,
     district: "maya-maya",
-    price_xaf: 35_000,
+    price_xaf: 25_000,
     price_unit: "service",
     rates: [],
     cover_url: "https://picsum.photos/seed/chantal-24/800/600",
@@ -172,9 +171,9 @@ export const MOCK_LISTINGS: Listing[] = [
     category: "categorie-b" as const,
     option_type: "option_2" as const,
     mobility: "a_domicile" as const,
-    city: "ouesso" as const,
+    city: "pointe-noire" as const,
     district: null,
-    price_xaf: 70_000,
+    price_xaf: 25_000,
     price_unit: "service",
     rates: [],
     cover_url: "https://picsum.photos/seed/massage-zen-2/800/600",
@@ -211,4 +210,5 @@ export const MOCK_LISTING_CARDS: ListingCardData[] = MOCK_LISTINGS.map((l) => ({
   is_verified: l.is_verified,
   is_available_now: l.is_available_now,
   video_url: l.video_url,
+  whatsapp_phone: l.whatsapp_phone,
 }));

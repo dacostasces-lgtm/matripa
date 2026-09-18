@@ -3,7 +3,7 @@ import { Cormorant_Garamond, Inter } from "next/font/google";
 
 import { SiteFooter } from "@/components/legal/SiteFooter";
 import { ServiceWorkerRegistration } from "@/components/pwa/ServiceWorkerRegistration";
-import { EmergencyDiscretionButton } from "@/components/ui/EmergencyDiscretionButton";
+import { PanicButton } from "@/components/ui/PanicButton";
 import { NavigationBar } from "@/components/ui/NavigationBar";
 
 import "./globals.css";
@@ -60,7 +60,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <SiteFooter />
         <ServiceWorkerRegistration />
-        <EmergencyDiscretionButton />
+        <PanicButton />
       </body>
     </html>
   );

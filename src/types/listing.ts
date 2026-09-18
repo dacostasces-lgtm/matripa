@@ -11,10 +11,6 @@
 export const CITIES = [
   { slug: "brazzaville", label: "Brazzaville", region: "Pool" },
   { slug: "pointe-noire", label: "Pointe-Noire", region: "Kouilou" },
-  { slug: "dolisie", label: "Dolisie", region: "Niari" },
-  { slug: "nkayi", label: "Nkayi", region: "Bouenza" },
-  { slug: "ouesso", label: "Ouesso", region: "Sangha" },
-  { slug: "oyo", label: "Oyo", region: "Cuvette" },
 ] as const;
 
 export type CitySlug = (typeof CITIES)[number]["slug"];
@@ -38,7 +34,7 @@ export const CATEGORIES = [
     label: "Rencontres",
     short: "Rencontres",
     /** Unité tarifaire par défaut pour cette catégorie. */
-    defaultUnit: "night",
+    defaultUnit: "service",
   },
   {
     slug: "categorie-b",
@@ -52,7 +48,7 @@ export const CATEGORIES = [
     code: "C",
     label: "Escortes",
     short: "Escortes",
-    defaultUnit: "hour",
+    defaultUnit: "service",
   },
 ] as const satisfies readonly {
   slug: string;
@@ -231,13 +227,14 @@ export type ListingCardData = Pick<
   // La carte n'affiche que le badge « Vidéo 4K » : l'URL sert uniquement à
   // savoir qu'un aperçu existe, elle n'est jamais chargée à ce niveau.
   | "video_url"
+  | "whatsapp_phone"
 > & {
   boosted_until?: string | null;
   is_video_verified?: boolean;
 };
 
 export const LISTING_CARD_COLUMNS =
-  "id, slug, title, highlight, city, district, category, price_xaf, price_unit, cover_url, rating, is_vip, is_verified, is_available_now, video_url, boosted_until, is_video_verified";
+  "id, slug, title, highlight, city, district, category, price_xaf, price_unit, cover_url, rating, is_vip, is_verified, is_available_now, video_url, whatsapp_phone, boosted_until, is_video_verified";
 
 /* -------------------------------------------------------------------------- */
 /*                              Aperçus vidéo                                 */
