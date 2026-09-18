@@ -24,7 +24,6 @@ import {
   GlassTag,
   VerifiedBadge,
   VideoBadge,
-  VideoVerifiedBadge,
   VipBadge,
 } from "@/components/ui/badges";
 import { createPublicClient } from "@/lib/supabase/public";
@@ -272,10 +271,7 @@ function Header({ listing }: { listing: Listing }) {
       <div className="flex flex-wrap items-center gap-2">
         {isBoosted && <BoostBadge size="md" />}
         {listing.is_vip && <VipBadge size="md" />}
-        {listing.is_video_verified && <VideoVerifiedBadge size="md" />}
-        {!listing.is_video_verified && listing.is_verified && (
-          <VerifiedBadge size="md" label="Compte certifié" />
-        )}
+        {listing.is_verified && <VerifiedBadge size="md" label="Compte certifié" />}
         {listing.video_url && <VideoBadge size="md" />}
         {listing.is_available_now && <AvailableNowPill />}
       </div>

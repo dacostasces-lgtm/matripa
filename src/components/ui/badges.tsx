@@ -160,27 +160,3 @@ export function BoostBadge({ size = "sm", className }: { size?: BadgeSize; class
     </span>
   );
 }
-
-/** Badge attestant de l'authenticité certifiée par selfie vidéo. */
-export function VideoVerifiedBadge({
-  size = "sm",
-  className,
-}: {
-  size?: BadgeSize;
-  className?: string;
-}) {
-  return (
-    <span
-      className={cx(
-        "inline-flex select-none items-center rounded-full",
-        "border border-cyan-400/35 bg-cyan-950/60 font-medium text-cyan-200 backdrop-blur-md",
-        "shadow-[0_0_12px_rgb(34_211_238/0.25)]",
-        sizes[size],
-        className,
-      )}
-    >
-      <BadgeCheck className={cx(icon[size], "shrink-0 text-cyan-400")} aria-hidden />
-      Selfie Vérifié
-    </span>
-  );
-}
