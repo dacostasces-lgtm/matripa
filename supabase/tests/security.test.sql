@@ -7,7 +7,7 @@
 -- lire les coordonnées des clients, ou un formulaire de spam sans limite.
 
 begin;
-select plan(34);
+select plan(37);
 
 -- Jeu d'essai ---------------------------------------------------------------
 -- Les colonnes de jetons sont mises à '' et non laissées à NULL : GoTrue les
@@ -391,6 +391,32 @@ select is(
 );
 
 reset role;
+
+/* -------------------------------------------------------------------------- */
+/*                 Vérification vidéo factice : objets retirés                */
+/* -------------------------------------------------------------------------- */
+
+-- `video_verifications` accordait l'insertion au rôle client sans restreindre
+-- les colonnes : un compte pouvait s'inscrire lui-même avec le statut
+-- « approved ». La colonne `is_video_verified` alimentait un badge que plus
+-- aucun code ne renseignait. Les trois objets sont supprimés par la migration
+-- 0013 ; ces assertions empêchent leur réintroduction par inadvertance.
+
+select is(
+  to_regclass('public.video_verifications')::text,
+  null,
+  'la table video_verifications, qui permettait l''auto-certification, a disparu'
+);
+
+select ok(
+  not exists (select 1 from pg_type where typname = 'verification_status'),
+  'le type verification_status de cette table a disparu'
+);
+
+select hasnt_column(
+  'public', 'listings', 'is_video_verified',
+  'la colonne is_video_verified, jamais renseignée, a disparu'
+);
 
 select * from finish();
 rollback;

@@ -167,8 +167,6 @@ export type Listing = {
   boosted_until?: string | null;
   /** Numéro WhatsApp direct au format international ex: "+242061234567". */
   whatsapp_phone?: string | null;
-  /** Badge spécifique vérifié par selfie vidéo. */
-  is_video_verified?: boolean;
   /** Galerie de photos et vidéos privées verrouillées. */
   private_media?: PrivateMediaItem[];
 
@@ -230,11 +228,10 @@ export type ListingCardData = Pick<
   | "whatsapp_phone"
 > & {
   boosted_until?: string | null;
-  is_video_verified?: boolean;
 };
 
 export const LISTING_CARD_COLUMNS =
-  "id, slug, title, highlight, city, district, category, price_xaf, price_unit, cover_url, rating, is_vip, is_verified, is_available_now, video_url, whatsapp_phone, boosted_until, is_video_verified";
+  "id, slug, title, highlight, city, district, category, price_xaf, price_unit, cover_url, rating, is_vip, is_verified, is_available_now, video_url, whatsapp_phone, boosted_until";
 
 /* -------------------------------------------------------------------------- */
 /*                              Aperçus vidéo                                 */

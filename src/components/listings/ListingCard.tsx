@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Heart, MapPin, MessageCircle, Star } from "lucide-react";
 
-import { BoostBadge, VerifiedBadge, VideoBadge, VideoVerifiedBadge, VipBadge } from "@/components/ui/badges";
+import { BoostBadge, VerifiedBadge, VideoBadge, VipBadge } from "@/components/ui/badges";
 import { cx, formatRating, formatXAF, priceUnitLabel } from "@/lib/format";
 import { cityLabel, type ListingCardData } from "@/types/listing";
 
@@ -23,7 +23,7 @@ const TOP_SCRIM = "linear-gradient(to bottom, rgb(2 6 23 / 0.55) 0%, transparent
 export function ListingCard({ listing, priority = false, index = 0, className }: ListingCardProps) {
   const router = useRouter();
   const [isFavorite, setIsFavorite] = useState(false);
-  const { slug, title, highlight, city, district, price_xaf, price_unit, cover_url, rating, is_vip, is_verified, is_available_now, video_url, whatsapp_phone, boosted_until, is_video_verified } = listing;
+  const { slug, title, highlight, city, district, price_xaf, price_unit, cover_url, rating, is_vip, is_verified, is_available_now, video_url, whatsapp_phone, boosted_until } = listing;
   const isBoosted = boosted_until ? new Date(boosted_until).getTime() > Date.now() : false;
   const phone = (whatsapp_phone || "+242069123456").replace(/[^0-9]/g, "");
   const message = `Bonjour, je vous contacte depuis Matripa au sujet de votre annonce "${title}" à ${cityLabel(city)}. Êtes-vous disponible prochainement ?`;
@@ -55,8 +55,7 @@ export function ListingCard({ listing, priority = false, index = 0, className }:
           <div className="flex flex-col items-start gap-1.5">
             {isBoosted && <BoostBadge />}
             {is_vip && <VipBadge />}
-            {is_video_verified && <VideoVerifiedBadge />}
-            {!is_video_verified && is_verified && <VerifiedBadge />}
+            {is_verified && <VerifiedBadge />}
           </div>
           <div className="flex items-start gap-1.5">
             {video_url && <VideoBadge label="4K" className="shrink-0" />}
