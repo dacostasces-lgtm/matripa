@@ -9,22 +9,40 @@ import { cx } from "@/lib/format";
 import type { ListingFilters } from "@/types/listing";
 
 const DEBOUNCE_MS = 350;
+/** Filtrage local : pas de requête à économiser, juste la frappe à laisser respirer. */
+const INSTANT_DEBOUNCE_MS = 120;
 
-export function SearchInput({ filters }: { filters: ListingFilters }) {
+interface SearchInputProps {
+  filters: ListingFilters;
+  /**
+   * Mode instantané (explorateur de l'accueil) : la saisie est remontée au
+   * parent au lieu de déclencher une navigation serveur.
+   */
+  onQueryChange?: (query: string | null) => void;
+}
+
+export function SearchInput({ filters, onQueryChange }: SearchInputProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
   const [value, setValue] = useState(filters.query ?? "");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Resynchronise sur navigation externe (retour arrière, reset des filtres).
+  // Resynchronise sur changement externe (retour arrière, reset des filtres),
+  // sans écraser la frappe en cours : « villa » ≠ « villa  » ne doit pas
+  // supprimer l'espace que l'utilisateur vient de taper.
   useEffect(() => {
-    setValue(filters.query ?? "");
+    setValue((current) => (current.trim() === (filters.query ?? "") ? current : filters.query ?? ""));
   }, [filters.query]);
 
   const submit = (query: string) => {
     const next = query.trim();
     if (next === (filters.query ?? "")) return;
+
+    if (onQueryChange) {
+      onQueryChange(next || null);
+      return;
+    }
 
     startTransition(() => {
       const qs = serializeFilters({ ...filters, query: next || null, page: 1 });
@@ -34,7 +52,7 @@ export function SearchInput({ filters }: { filters: ListingFilters }) {
 
   // Debounce : on ne pousse une entrée d'historique qu'à la pause de frappe.
   useEffect(() => {
-    const timer = setTimeout(() => submit(value), DEBOUNCE_MS);
+    const timer = setTimeout(() => submit(value), onQueryChange ? INSTANT_DEBOUNCE_MS : DEBOUNCE_MS);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);

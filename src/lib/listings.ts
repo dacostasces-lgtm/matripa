@@ -5,12 +5,14 @@ import { unstable_cache } from "next/cache";
 import { createPublicClient } from "@/lib/supabase/public";
 import {
   LISTING_CARD_COLUMNS,
+  LISTING_EXPLORER_COLUMNS,
   PAGE_SIZE,
   VIDEO_STORY_COLUMNS,
   VIDEO_STORY_LIMIT,
   type CitySlug,
   type Listing,
   type ListingCardData,
+  type ListingExplorerData,
   type ListingFilters,
   type VideoStory,
 } from "@/types/listing";
@@ -217,6 +219,51 @@ export const fetchListings = (filters: ListingFilters): Promise<ListingPage> =>
     ["listings:feed", ...filtersKeyParts(filters)],
     { revalidate: CACHE_TTL, tags: [LISTINGS_TAG] },
   )();
+
+/**
+ * Au-delà, l'accueil pèserait trop lourd sur une connexion mobile lente : tout
+ * ce qui est chargé ici est sérialisé dans le HTML. Si le catalogue publié
+ * dépasse ce plafond, l'explorateur l'annonce (cf. `total`) — ce sera le
+ * signal pour passer à une pagination côté serveur.
+ */
+export const EXPLORER_LIMIT = 200;
+
+export interface ExplorerCatalogue {
+  listings: ListingExplorerData[];
+  /** Nombre d'annonces publiées en base, y compris au-delà du plafond. */
+  total: number;
+}
+
+/**
+ * Catalogue utilisé par l'explorateur client de l'accueil : ville, catégorie,
+ * recherche et filtres avancés y réagissent sans aller-retour réseau.
+ */
+async function fetchExplorerListingsUncached(): Promise<ExplorerCatalogue> {
+  const supabase = createPublicClient();
+  const { data, error, count } = await supabase
+    .from("listings")
+    .select(LISTING_EXPLORER_COLUMNS, { count: "exact" })
+    .eq("status", "published")
+    .order("is_vip", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(EXPLORER_LIMIT)
+    .returns<ListingExplorerData[]>();
+
+  if (error) {
+    console.error("[listings] explorer fetch failed", error);
+    return { listings: [], total: 0 };
+  }
+  const listings = data ?? [];
+  return { listings, total: count ?? listings.length };
+}
+
+export const fetchExplorerListings = (): Promise<ExplorerCatalogue> =>
+  // Clé versionnée : le cache de données Vercel survit aux déploiements, une
+  // entrée à l'ancien format (simple tableau) serait sinon relue telle quelle.
+  unstable_cache(fetchExplorerListingsUncached, ["listings:explorer:v2"], {
+    revalidate: CACHE_TTL,
+    tags: [LISTINGS_TAG],
+  })();
 
 export const fetchVideoStories = (city: CitySlug | null): Promise<VideoStory[]> =>
   unstable_cache(

@@ -189,6 +189,21 @@ body {
   animation: veil-in 0.25s ease-out;
 }
 
+@keyframes profile-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(1.5rem) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.profile-modal-panel {
+  animation: profile-modal-in 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 /* Apparition douce des cartes du fil, décalée par `--i`. */
 @keyframes rise-in {
   from {
@@ -212,6 +227,7 @@ body {
   .story-ring,
   .drawer-panel,
   .drawer-veil,
+  .profile-modal-panel,
   .rise-in {
     animation: none;
   }

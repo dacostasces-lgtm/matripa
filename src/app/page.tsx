@@ -3,14 +3,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowUpRight, Crown, Sparkles } from "lucide-react";
 
-import { CategoryTabs } from "@/components/listings/CategoryTabs";
-import { CityNav } from "@/components/listings/CityNav";
-import { FilterDrawer } from "@/components/listings/FilterDrawer";
-import { ListingGrid, ListingGridSkeleton } from "@/components/listings/ListingGrid";
-import { SearchInput } from "@/components/listings/SearchInput";
+import { InteractiveListings } from "@/components/listings/InteractiveListings";
 import { VideoStories } from "@/components/listings/VideoStories";
-import { fetchVideoStories } from "@/lib/listings";
-import { filtersKey, parseFilters, type RawSearchParams } from "@/lib/filters";
+import { fetchExplorerListings, fetchVideoStories } from "@/lib/listings";
+import { parseFilters, type RawSearchParams } from "@/lib/filters";
 import type { CitySlug } from "@/types/listing";
 
 export const metadata: Metadata = {
@@ -38,6 +34,7 @@ interface HomePageProps {
 
 export default async function HomePage({ searchParams }: HomePageProps) {
   const filters = parseFilters(await searchParams);
+  const { listings, total } = await fetchExplorerListings();
 
   return (
     <main className="relative min-h-dvh text-slate-100">
@@ -71,26 +68,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           <VideoStoriesRail city={filters.city} />
         </Suspense>
 
-        <div className="sticky top-0 z-30 mt-8 -mx-4 space-y-3 border-b border-white/[0.06] bg-surface/85 px-4 py-3 backdrop-blur-2xl sm:-mx-6 sm:px-6 sm:py-4 lg:-mx-8 lg:px-8">
-          {/* Réserve à droite : le bouton Discrétion flotte au-dessus de cette barre une fois collée. */}
-          <div className="flex items-center gap-2 pr-11 sm:gap-3 sm:pr-28 lg:pr-[6.5rem]">
-            <div className="min-w-0 flex-1">
-              <SearchInput filters={filters} />
-            </div>
-            <FilterDrawer filters={filters} />
-          </div>
-
-          <CityNav filters={filters} />
-          <CategoryTabs filters={filters} />
+        <div className="mt-8">
+          <InteractiveListings listings={listings} total={total} initialFilters={filters} />
         </div>
-
-        <section className="mt-8">
-          {/* La clé force un nouveau fallback à chaque changement de filtre :
-              l'utilisateur voit immédiatement que la recherche est relancée. */}
-          <Suspense key={filtersKey(filters)} fallback={<ListingGridSkeleton />}>
-            <ListingGrid filters={filters} />
-          </Suspense>
-        </section>
       </div>
     </main>
   );

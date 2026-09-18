@@ -6,6 +6,7 @@ import { Crown, MessageCircle } from "lucide-react";
 
 import { VipPassSheet } from "@/components/listings/VipPassButton";
 import { cx, formatXAF, priceUnitLabel } from "@/lib/format";
+import { whatsAppLink } from "@/lib/whatsapp";
 import type { PriceUnit } from "@/types/listing";
 
 interface StickyActionBarProps {
@@ -48,10 +49,11 @@ export function StickyActionBar({
     return () => observer.disconnect();
   }, []);
 
-  const cleanPhone = (whatsappPhone || "+242069123456").replace(/[^0-9]/g, "");
-  const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(
-    `Bonjour, je vous contacte depuis Matripa au sujet de "${listingTitle}". Êtes-vous disponible ?`
-  )}`;
+  // `null` sans numéro renseigné : le bouton disparaît plutôt que d'écrire à un inconnu.
+  const whatsappUrl = whatsAppLink(
+    whatsappPhone,
+    `Bonjour, je vous contacte depuis Matripa au sujet de "${listingTitle}". Êtes-vous disponible ?`,
+  );
 
   return (
     <>
@@ -71,15 +73,17 @@ export function StickyActionBar({
             <p className="text-[10px] text-slate-400">par {priceUnitLabel(priceUnit)}</p>
           </div>
 
-          <a
-            href={whatsappUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Contacter sur WhatsApp"
-            className="grid size-10 shrink-0 place-items-center rounded-xl border border-emerald-500/40 bg-emerald-500/15 text-emerald-400 transition active:scale-95"
-          >
-            <MessageCircle className="size-4" />
-          </a>
+          {whatsappUrl && (
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Contacter sur WhatsApp"
+              className="grid size-10 shrink-0 place-items-center rounded-xl border border-emerald-500/40 bg-emerald-500/15 text-emerald-400 transition active:scale-95"
+            >
+              <MessageCircle className="size-4" />
+            </a>
+          )}
 
           <button
             type="button"

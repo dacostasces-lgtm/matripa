@@ -17,8 +17,19 @@ export type CitySlug = (typeof CITIES)[number]["slug"];
 
 const CITY_MAP = new Map(CITIES.map((c) => [c.slug, c]));
 
+/**
+ * Les filtres se limitent à Brazzaville et Pointe-Noire, mais la colonne
+ * `city` est libre : des annonces publiées avant ce recentrage (ex. Dolisie)
+ * existent encore. On les affiche lisiblement plutôt que par leur slug brut.
+ */
+const readableSlug = (slug: string): string =>
+  slug
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join("-");
+
 export const cityLabel = (slug: CitySlug | string): string =>
-  CITY_MAP.get(slug as CitySlug)?.label ?? slug;
+  CITY_MAP.get(slug as CitySlug)?.label ?? readableSlug(slug);
 
 export const isCitySlug = (v: unknown): v is CitySlug =>
   typeof v === "string" && CITY_MAP.has(v as CitySlug);
@@ -233,6 +244,17 @@ export type ListingCardData = Pick<
 export const LISTING_CARD_COLUMNS =
   "id, slug, title, highlight, city, district, category, price_xaf, price_unit, cover_url, rating, is_vip, is_verified, is_available_now, video_url, whatsapp_phone, boosted_until";
 
+/**
+ * Projection de l'explorateur de l'accueil : la carte, plus ce qu'affiche la
+ * fiche rapide (ProfileModal). Colonnes explicites plutôt que `*` : tout ce qui
+ * est lu ici est sérialisé dans le HTML de l'accueil — `search_vector`,
+ * `owner_id` ou les tarifs détaillés n'ont rien à y faire.
+ */
+export type ListingExplorerData = ListingCardData &
+  Pick<Listing, "description" | "images" | "amenities" | "mobility" | "option_type">;
+
+export const LISTING_EXPLORER_COLUMNS = `${LISTING_CARD_COLUMNS}, description, images, amenities, mobility, option_type`;
+
 /* -------------------------------------------------------------------------- */
 /*                              Aperçus vidéo                                 */
 /* -------------------------------------------------------------------------- */
@@ -253,10 +275,12 @@ export type VideoStory = Pick<
   | "video_url"
   | "video_poster_url"
   | "is_vip"
+  // Bouton WhatsApp du lecteur : sans numéro, il n'est pas affiché.
+  | "whatsapp_phone"
 > & { video_url: string };
 
 export const VIDEO_STORY_COLUMNS =
-  "id, slug, title, city, category, cover_url, video_url, video_poster_url, is_vip";
+  "id, slug, title, city, category, cover_url, video_url, video_poster_url, is_vip, whatsapp_phone";
 
 /** Au-delà, le rail devient un mur : on préfère une sélection courte. */
 export const VIDEO_STORY_LIMIT = 12;

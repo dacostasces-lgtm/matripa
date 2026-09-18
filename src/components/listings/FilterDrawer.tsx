@@ -24,7 +24,16 @@ import {
  * requête serveur à chaque geste. L'URL reste la source de vérité — partageable
  * et restaurable au retour arrière.
  */
-export function FilterDrawer({ filters }: { filters: ListingFilters }) {
+interface FilterDrawerProps {
+  filters: ListingFilters;
+  /**
+   * Mode instantané (explorateur de l'accueil) : les critères validés sont
+   * remontés au parent au lieu de déclencher une navigation serveur.
+   */
+  onChange?: (next: ListingFilters) => void;
+}
+
+export function FilterDrawer({ filters, onChange }: FilterDrawerProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
@@ -36,12 +45,16 @@ export function FilterDrawer({ filters }: { filters: ListingFilters }) {
 
   const push = useCallback(
     (next: ListingFilters) => {
+      if (onChange) {
+        onChange({ ...next, page: 1 });
+        return;
+      }
       startTransition(() => {
         const qs = serializeFilters({ ...next, page: 1 });
         router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
       });
     },
-    [pathname, router],
+    [onChange, pathname, router],
   );
 
   const apply = () => {
@@ -213,7 +226,8 @@ function DrawerPanel({
           "shadow-[-24px_0_60px_-24px_rgb(0_0_0/1)]",
         )}
       >
-        <header className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+        {/* Réserve à droite : le bouton de panique reste au premier plan dans ce coin. */}
+        <header className="flex items-center justify-between border-b border-white/10 py-4 pl-5 pr-16 sm:pr-32">
           <div>
             <h2 className="font-display text-xl font-semibold text-white">Affiner la recherche</h2>
             <p className="text-xs text-slate-500">

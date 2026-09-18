@@ -55,7 +55,8 @@ const TABS: Tab[] = [
 export function NavigationBar() {
   const pathname = usePathname();
   const onListing = pathname.startsWith("/annonces/");
-  const publishing = pathname.startsWith("/publier");
+  // /publier redirige vers /partenaire : l'onglet doit rester actif après la redirection.
+  const publishing = pathname.startsWith("/publier") || pathname.startsWith("/partenaire");
 
   return (
     <nav

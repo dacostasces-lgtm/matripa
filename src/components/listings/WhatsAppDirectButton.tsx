@@ -1,6 +1,8 @@
 "use client";
 
 import { MessageCircle, Phone } from "lucide-react";
+
+import { toWhatsAppNumber } from "@/lib/whatsapp";
 import { cityLabel, type CitySlug } from "@/types/listing";
 
 interface WhatsAppDirectButtonProps {
@@ -24,13 +26,14 @@ export function WhatsAppDirectButton({
   className = "",
   variant = "primary",
 }: WhatsAppDirectButtonProps) {
-  // Numéro par défaut si non renseigné sur le profil
-  const targetPhone = phone || "+242069123456";
-  const cleanPhone = targetPhone.replace(/[^0-9]/g, "");
+  // Sans numéro renseigné sur le profil, aucun bouton : un numéro « par
+  // défaut » enverrait le message ou l'appel du client à un inconnu.
+  const number = toWhatsAppNumber(phone);
+  if (!number) return null;
 
   const cityName = cityLabel(city);
   const defaultMessage = `Bonjour, je vous contacte depuis Matripa au sujet de votre annonce "${listingTitle}" à ${cityName}. Êtes-vous disponible prochainement ?`;
-  const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(defaultMessage)}`;
+  const whatsappUrl = `https://wa.me/${number}?text=${encodeURIComponent(defaultMessage)}`;
 
   if (variant === "icon") {
     return (
@@ -73,7 +76,7 @@ export function WhatsAppDirectButton({
       </a>
 
       <a
-        href={`tel:${targetPhone}`}
+        href={`tel:+${number}`}
         aria-label="Appeler directement par téléphone"
         title="Appel direct"
         className="grid size-12 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-slate-300 backdrop-blur-xl transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white active:scale-95"

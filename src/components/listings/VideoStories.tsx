@@ -21,6 +21,7 @@ import {
 import { Portal } from "@/components/ui/Portal";
 import { VirtualGiftsModal } from "@/components/listings/VirtualGiftsModal";
 import { cx } from "@/lib/format";
+import { whatsAppLink } from "@/lib/whatsapp";
 import { categoryShort, cityLabel, type VideoStory } from "@/types/listing";
 
 /**
@@ -186,6 +187,10 @@ function StoryPlayer({
   onNavigate: (index: number) => void;
 }) {
   const story = stories[index];
+  const whatsappHref = whatsAppLink(
+    story.whatsapp_phone,
+    `Bonjour, je regarde votre Short sur Matripa concernant "${story.title}". Êtes-vous disponible ?`,
+  );
   const videoRef = useRef<HTMLVideoElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const [muted, setMuted] = useState(true);
@@ -317,21 +322,21 @@ function StoryPlayer({
               <span className="text-[10px] font-semibold drop-shadow">Cadeau</span>
             </button>
 
-            {/* Bouton WhatsApp */}
-            <a
-              href={`https://wa.me/242069123456?text=${encodeURIComponent(
-                `Bonjour, je regarde votre Short sur Matripa concernant "${story.title}". Êtes-vous disponible ?`
-              )}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex flex-col items-center gap-0.5 text-emerald-400 transition active:scale-90"
-              aria-label="Contacter sur WhatsApp"
-            >
-              <div className="grid size-10 place-items-center rounded-full bg-slate-950/60 text-emerald-400 ring-1 ring-emerald-500/40 backdrop-blur-md hover:bg-emerald-500/20">
-                <MessageCircle className="size-5" />
-              </div>
-              <span className="text-[10px] font-semibold drop-shadow">WhatsApp</span>
-            </a>
+            {/* Bouton WhatsApp — absent si le profil n'a pas renseigné de numéro. */}
+            {whatsappHref && (
+              <a
+                href={whatsappHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex flex-col items-center gap-0.5 text-emerald-400 transition active:scale-90"
+                aria-label="Contacter sur WhatsApp"
+              >
+                <div className="grid size-10 place-items-center rounded-full bg-slate-950/60 text-emerald-400 ring-1 ring-emerald-500/40 backdrop-blur-md hover:bg-emerald-500/20">
+                  <MessageCircle className="size-5" />
+                </div>
+                <span className="text-[10px] font-semibold drop-shadow">WhatsApp</span>
+              </a>
+            )}
 
             {/* Bouton Partage */}
             <button
@@ -401,7 +406,8 @@ function StoryPlayer({
         type="button"
         onClick={onClose}
         aria-label="Fermer les aperçus"
-        className="absolute right-4 top-4 z-20 grid size-10 place-items-center rounded-full border border-white/15 bg-slate-950/60 text-white backdrop-blur-md transition hover:bg-slate-950/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon/80"
+        // Décalé à gauche du bouton de panique, qui reste au premier plan dans le coin.
+        className="absolute right-16 top-4 z-20 sm:right-36 grid size-10 place-items-center rounded-full border border-white/15 bg-slate-950/60 text-white backdrop-blur-md transition hover:bg-slate-950/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon/80"
       >
         <X className="size-5" aria-hidden />
       </button>

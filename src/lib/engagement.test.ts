@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+
+import { whatsAppLink } from "@/lib/whatsapp";
 import type { ListingCardData } from "@/types/listing";
 
 describe("Logique de Boost & Ordonnancement", () => {
@@ -76,16 +78,14 @@ describe("Logique de Boost & Ordonnancement", () => {
 });
 
 describe("Formatage du contact WhatsApp direct", () => {
+  // Teste le code réellement utilisé par les boutons (cf. whatsapp.test.ts pour le détail).
   it("nettoie le numéro de téléphone et génère un texte encodé", () => {
-    const rawPhone = "+242 06 912 34 56";
-    const cleanPhone = rawPhone.replace(/[^0-9]/g, "");
     const title = "Mireille, 23 ans";
     const city = "Brazzaville";
-
     const message = `Bonjour, je vous contacte depuis Matripa au sujet de votre annonce "${title}" à ${city}. Êtes-vous disponible prochainement ?`;
-    const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
 
-    expect(cleanPhone).toBe("242069123456");
+    const url = whatsAppLink("+242 06 912 34 56", message);
+
     expect(url).toContain("https://wa.me/242069123456?text=");
     expect(url).toContain("Mireille");
   });
