@@ -8,7 +8,7 @@
 -- suite donnée, et chaque décision de l'équipe est tracée.
 
 begin;
-select plan(49);
+select plan(54);
 
 -- Jeu d'essai ---------------------------------------------------------------
 -- r1, r2, r3 : signaleurs · o1 : propriétaire vérifié · o2 : propriétaire
@@ -62,6 +62,16 @@ values ('d0000000-0000-0000-0000-000000000005', 'approved', 'FIXTUR', 'cni', now
 select ok(
   not has_function_privilege('anon', 'public.submit_report(uuid,report_reason,text)', 'EXECUTE'),
   'un visiteur non connecté ne peut pas signaler'
+);
+
+select ok(
+  not has_function_privilege('anon', 'public.review_report(uuid,text,text)', 'EXECUTE'),
+  'un visiteur non connecté ne peut pas trancher un signalement'
+);
+
+select ok(
+  not has_function_privilege('anon', 'public.admin_list_open_reports()', 'EXECUTE'),
+  'un visiteur non connecté ne peut pas lire la file de modération'
 );
 
 set local role authenticated;
@@ -555,6 +565,68 @@ select throws_ok(
   '42501',
   'forbidden',
   'un administrateur ne peut pas trancher un signalement sur sa propre annonce'
+);
+
+reset role;
+
+/* -------------------------------------------------------------------------- */
+/*                 Suppression de compte sous examen (garde-fou)              */
+/* -------------------------------------------------------------------------- */
+
+-- Un partenaire suspendu ou visé par un signalement ouvert ne doit pas pouvoir
+-- effacer la trace du dossier en supprimant son compte.
+insert into auth.users (
+  id, instance_id, aud, role, email, encrypted_password,
+  confirmation_token, recovery_token, email_change_token_new,
+  email_change_token_current, phone_change_token, reauthentication_token,
+  email_change, phone_change, email_confirmed_at, created_at, updated_at
+)
+select u.id::uuid, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+       u.email, 'x', '', '', '', '', '', '', '', '', now(), now(), now()
+  from (values
+    ('d0000000-0000-0000-0000-000000000007', 'rep-o3@test.cg'),
+    ('d0000000-0000-0000-0000-000000000008', 'rep-o4@test.cg'),
+    ('d0000000-0000-0000-0000-000000000009', 'rep-o5@test.cg')
+  ) as u(id, email);
+
+insert into public.listings (
+  id, slug, title, description, category, option_type, mobility, city,
+  price_xaf, price_unit, cover_url, status, owner_id, is_verified, suspended_at
+)
+select l.id::uuid, l.slug, 'Profil ' || l.slug,
+       'Description suffisamment longue pour la validation applicative.',
+       'categorie-a', 'option_1', 'sur_place', 'brazzaville', 30000, 'hour',
+       'https://exemple/' || l.slug || '.jpg', 'published', l.owner::uuid, true,
+       l.suspended::timestamptz
+  from (values
+    ('d1000000-0000-0000-0000-00000000000a', 'rep-l20', 'd0000000-0000-0000-0000-000000000007', now()::text),
+    ('d1000000-0000-0000-0000-00000000000b', 'rep-l21', 'd0000000-0000-0000-0000-000000000008', null)
+  ) as l(id, slug, owner, suspended);
+
+insert into public.listing_reports (listing_id, owner_id, reporter_id, reason, is_urgent)
+values ('d1000000-0000-0000-0000-00000000000b', 'd0000000-0000-0000-0000-000000000008',
+        'd0000000-0000-0000-0000-000000000001', 'faux_profil', false);
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"d0000000-0000-0000-0000-000000000007","role":"authenticated"}';
+
+select ok(
+  public.account_has_open_moderation(),
+  'un partenaire dont le profil est suspendu ne peut pas supprimer son compte'
+);
+
+set local request.jwt.claims = '{"sub":"d0000000-0000-0000-0000-000000000008","role":"authenticated"}';
+
+select ok(
+  public.account_has_open_moderation(),
+  'un partenaire visé par un signalement ouvert ne peut pas supprimer son compte'
+);
+
+set local request.jwt.claims = '{"sub":"d0000000-0000-0000-0000-000000000009","role":"authenticated"}';
+
+select ok(
+  not public.account_has_open_moderation(),
+  'un compte sans dossier en cours peut être supprimé'
 );
 
 reset role;

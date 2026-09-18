@@ -371,9 +371,12 @@ begin
   end if;
 
   -- Lecture sans verrou de ligne : détermine la clé du verrou consultatif
-  -- avant de verrouiller la ligne, pour respecter l'ordre « verrou
-  -- consultatif puis verrou de ligne » suivi par `listings_enforce_verification`
-  -- et `review_verification` (migration 0011), et éviter un interblocage.
+  -- avant de verrouiller la ligne. Les deux fonctions de décision par compte
+  -- (`review_report` ici et `review_verification`, redéfinie plus bas dans
+  -- cette migration) prennent désormais le verrou consultatif par compte
+  -- AVANT tout verrou de ligne, ce qui évite l'interblocage entre un
+  -- administrateur qui tranche une vérification et un autre qui bloque une
+  -- personne mineure sur le même compte.
   select r.owner_id into v_owner_id
     from public.listing_reports r
    where r.id = p_report_id;
@@ -413,6 +416,16 @@ begin
    where id = p_report_id;
 
   if p_decision = 'dismiss' then
+    -- Course : un signalement urgent concurrent peut suspendre l'annonce
+    -- pendant que ce rejet s'exécute ; sans verrou sur la ligne `listings`,
+    -- les tests ci-dessous liraient un instantané antérieur et le
+    -- `suspended_at = null` remettrait en ligne une annonce visée par un
+    -- signalement « personne mineure présumée ». On verrouille donc la ligne
+    -- d'abord : les vérifications qui suivent voient l'état d'après verrou.
+    if v_report.listing_id is not null then
+      perform 1 from public.listings where id = v_report.listing_id for update;
+    end if;
+
     -- La suspension ne tombe que si le profil n'est pas déjà archivé, qu'aucun
     -- signalement confirmé ne le vise, et que plus aucun signalement urgent
     -- ouvert ne le vise.
@@ -544,3 +557,160 @@ revoke execute on function public.admin_list_open_reports() from public, anon;
 grant execute on function public.submit_report(uuid, public.report_reason, text) to authenticated;
 grant execute on function public.review_report(uuid, text, text) to authenticated;
 grant execute on function public.admin_list_open_reports() to authenticated;
+
+-- Redéfinition de `review_verification` (corps identique à la migration 0011,
+-- messages, signature et droits compris) au seul détail de l'ordre des
+-- verrous : le verrou consultatif par compte est désormais pris AVANT le
+-- verrou de ligne. Les deux fonctions de décision par compte
+-- (`review_verification` et `review_report`) suivent ainsi le même ordre
+-- « verrou consultatif puis verrou de ligne », sans quoi deux administrateurs
+-- travaillant sur le même compte (l'un tranchant une vérification, l'autre
+-- bloquant une personne mineure) pouvaient s'interbloquer (40P01).
+create or replace function public.review_verification(
+  p_id       uuid,
+  p_decision text,
+  p_reason   public.identity_rejection_reason default null,
+  p_note     text default null
+) returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_request public.verification_requests%rowtype;
+  v_user_id uuid;
+  v_note    text := nullif(trim(coalesce(p_note, '')), '');
+begin
+  if not public.is_admin() then
+    raise exception 'forbidden' using errcode = '42501';
+  end if;
+
+  if p_decision is null or p_decision not in ('approve', 'reject', 'block_minor', 'revoke') then
+    raise exception 'invalid_decision' using errcode = '22023';
+  end if;
+
+  -- Lecture sans verrou de ligne : la clé du verrou consultatif est celle du
+  -- compte, il faut donc la connaître avant de verrouiller quoi que ce soit.
+  select r.user_id into v_user_id
+    from public.verification_requests r
+   where r.id = p_id;
+
+  if not found then
+    raise exception 'not_found' using errcode = 'P0002';
+  end if;
+
+  -- Verrou consultatif exclusif, à la clé du compte : sérialise cette
+  -- décision avec toute insertion ou mise à jour d'annonce concurrente
+  -- (verrou partagé pris dans le trigger `listings_enforce_verification`),
+  -- pour qu'aucune annonce ne garde ou ne perde son badge à contretemps.
+  perform pg_advisory_xact_lock(hashtextextended(v_user_id::text, 0));
+
+  select * into v_request
+    from public.verification_requests r
+   where r.id = p_id
+   for update;
+
+  if not found then
+    raise exception 'not_found' using errcode = 'P0002';
+  end if;
+
+  -- Personne ne statue sur sa propre vérification, pas même un administrateur.
+  if v_request.user_id = auth.uid() then
+    raise exception 'forbidden' using errcode = '42501';
+  end if;
+
+  -- `block_minor` reste possible sur une demande déjà approuvée : la
+  -- minorité peut être constatée après coup, pas seulement lors de l'examen
+  -- initial.
+  if (p_decision = 'revoke' and v_request.status <> 'approved')
+     or (p_decision = 'block_minor' and v_request.status not in ('pending', 'approved'))
+     or (p_decision not in ('revoke', 'block_minor') and v_request.status <> 'pending') then
+    raise exception 'already_reviewed' using errcode = 'P0001';
+  end if;
+
+  if (p_decision = 'reject' and p_reason is null)
+     or (p_decision = 'revoke' and v_note is null) then
+    raise exception 'reason_required' using errcode = '22023';
+  end if;
+
+  -- La minorité est un constat (`block_minor`), pas un motif de rejet ou de
+  -- révocation ordinaire : elle bloque le compte et archive ses annonces, ce
+  -- que `reject`/`revoke` ne font pas.
+  if p_decision in ('reject', 'revoke') and p_reason = 'personne_mineure' then
+    raise exception 'invalid_reason' using errcode = '22023';
+  end if;
+
+  if p_decision = 'approve' then
+    update public.verification_requests
+       set status = 'approved', reviewed_by = auth.uid(), reviewed_at = now()
+     where id = p_id;
+
+    update public.listings
+       set is_verified = true, verification_grace_until = null
+     where owner_id = v_request.user_id;
+
+  elsif p_decision = 'reject' then
+    update public.verification_requests
+       set status = 'rejected', rejection_reason = p_reason, rejection_note = v_note,
+           reviewed_by = auth.uid(), reviewed_at = now()
+     where id = p_id;
+
+  elsif p_decision = 'block_minor' then
+    update public.verification_requests
+       set status = 'rejected', rejection_reason = 'personne_mineure', rejection_note = v_note,
+           reviewed_by = auth.uid(), reviewed_at = now()
+     where id = p_id;
+
+    insert into public.verification_blocks (user_id, verification_id, blocked_by)
+    values (v_request.user_id, p_id, auth.uid())
+    on conflict (user_id) do nothing;
+
+    update public.listings
+       set status = 'archived', is_verified = false, verification_grace_until = null
+     where owner_id = v_request.user_id;
+
+  else -- revoke
+    update public.verification_requests
+       set status = 'revoked', rejection_reason = p_reason, rejection_note = v_note,
+           reviewed_by = auth.uid(), reviewed_at = now()
+     where id = p_id;
+
+    update public.listings
+       set is_verified = false
+     where owner_id = v_request.user_id;
+  end if;
+
+  insert into public.moderation_log (verification_id, moderator_id, action, reason)
+  values (p_id, auth.uid(), p_decision, coalesce(v_note, p_reason::text));
+
+  return v_request.video_path;
+end;
+$$;
+
+revoke execute on function public.review_verification(uuid, text, public.identity_rejection_reason, text) from public, anon;
+grant execute on function public.review_verification(uuid, text, public.identity_rejection_reason, text) to authenticated;
+
+-- Une suspension en cours d'examen ne doit pas pouvoir être contournée en
+-- supprimant son compte : la suppression en cascade ferait disparaître
+-- l'annonce, et `review_report` n'aurait plus personne à bloquer.
+create or replace function public.account_has_open_moderation()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select auth.uid() is not null and (
+    exists (
+      select 1 from public.listings l
+       where l.owner_id = auth.uid() and l.suspended_at is not null
+    )
+    or exists (
+      select 1 from public.listing_reports r
+       where r.owner_id = auth.uid() and r.status = 'open'
+    )
+  );
+$$;
+
+revoke execute on function public.account_has_open_moderation() from public, anon;
+grant execute on function public.account_has_open_moderation() to authenticated;

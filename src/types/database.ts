@@ -331,6 +331,7 @@ export interface Database {
         Returns: undefined;
       };
       admin_list_open_reports: { Args: Record<string, never>; Returns: OpenReportRow[] };
+      account_has_open_moderation: { Args: Record<string, never>; Returns: boolean };
     };
     Enums: {
       listing_category: "categorie-a" | "categorie-b" | "categorie-c";

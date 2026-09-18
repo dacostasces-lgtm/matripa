@@ -43,6 +43,26 @@ export async function deleteMyAccount(
     };
   }
 
+  // Une suspension en cours d'examen ne doit pas pouvoir être contournée en
+  // supprimant son compte : la cascade ferait disparaître l'annonce signalée et
+  // l'équipe n'aurait plus personne à bloquer. En cas d'erreur du contrôle, on
+  // refuse (fail closed).
+  const { data: underReview, error: moderationError } = await supabase.rpc(
+    "account_has_open_moderation",
+  );
+
+  if (moderationError) {
+    console.error("[account] moderation check failed", moderationError);
+  }
+
+  if (moderationError || underReview) {
+    return {
+      status: "error",
+      message:
+        "Votre compte fait l'objet d'un examen par l'équipe Matripa : la suppression n'est pas possible pour l'instant. Écrivez-nous pour connaître la suite donnée.",
+    };
+  }
+
   // `deleteUser` exige la clé service_role : c'est le seul endroit du parcours
   // utilisateur qui l'emprunte, et l'identité supprimée est strictement celle
   // de la session en cours.
