@@ -8,7 +8,7 @@
 -- suite donnée, et chaque décision de l'équipe est tracée.
 
 begin;
-select plan(54);
+select plan(55);
 
 -- Jeu d'essai ---------------------------------------------------------------
 -- r1, r2, r3 : signaleurs · o1 : propriétaire vérifié · o2 : propriétaire
@@ -586,7 +586,8 @@ select u.id::uuid, '00000000-0000-0000-0000-000000000000', 'authenticated', 'aut
   from (values
     ('d0000000-0000-0000-0000-000000000007', 'rep-o3@test.cg'),
     ('d0000000-0000-0000-0000-000000000008', 'rep-o4@test.cg'),
-    ('d0000000-0000-0000-0000-000000000009', 'rep-o5@test.cg')
+    ('d0000000-0000-0000-0000-000000000009', 'rep-o5@test.cg'),
+    ('d0000000-0000-0000-0000-00000000000a', 'rep-o6@test.cg')
   ) as u(id, email);
 
 insert into public.listings (
@@ -602,6 +603,19 @@ select l.id::uuid, l.slug, 'Profil ' || l.slug,
     ('d1000000-0000-0000-0000-00000000000a', 'rep-l20', 'd0000000-0000-0000-0000-000000000007', now()::text),
     ('d1000000-0000-0000-0000-00000000000b', 'rep-l21', 'd0000000-0000-0000-0000-000000000008', null)
   ) as l(id, slug, owner, suspended);
+
+-- Profil retiré par une décision : archivé et suspendu définitivement, sans
+-- signalement ouvert. L'examen est clos, la suppression du compte redevient
+-- possible.
+insert into public.listings (
+  id, slug, title, description, category, option_type, mobility, city,
+  price_xaf, price_unit, cover_url, status, owner_id, is_verified, suspended_at
+) values (
+  'd1000000-0000-0000-0000-00000000000c', 'rep-l22', 'Profil rep-l22',
+  'Description suffisamment longue pour la validation applicative.',
+  'categorie-a', 'option_1', 'sur_place', 'brazzaville', 30000, 'hour',
+  'https://exemple/rep-l22.jpg', 'archived', 'd0000000-0000-0000-0000-00000000000a', true, now()
+);
 
 insert into public.listing_reports (listing_id, owner_id, reporter_id, reason, is_urgent)
 values ('d1000000-0000-0000-0000-00000000000b', 'd0000000-0000-0000-0000-000000000008',
@@ -627,6 +641,13 @@ set local request.jwt.claims = '{"sub":"d0000000-0000-0000-0000-000000000009","r
 select ok(
   not public.account_has_open_moderation(),
   'un compte sans dossier en cours peut être supprimé'
+);
+
+set local request.jwt.claims = '{"sub":"d0000000-0000-0000-0000-00000000000a","role":"authenticated"}';
+
+select ok(
+  not public.account_has_open_moderation(),
+  'un profil retiré par décision, archivé et suspendu, ne bloque plus la suppression du compte'
 );
 
 reset role;

@@ -78,9 +78,9 @@ export default function ConfidentialitePage() {
         <ul className="ml-5 list-disc space-y-1.5">
           <li>Demandes : 24 mois à compter du dépôt.</li>
           <li>
-            Compte : jusqu&apos;à sa suppression par son titulaire. Tant qu&apos;un profil est
-            suspendu ou visé par un signalement en cours d&apos;examen, la suppression du compte
-            reste impossible : elle redevient possible une fois la décision de l&apos;équipe prise.
+            Compte : jusqu&apos;à sa suppression par son titulaire. La suppression est
+            suspendue tant qu&apos;un signalement est en cours d&apos;examen sur l&apos;un de vos
+            profils ; elle redevient possible une fois la décision prise.
           </li>
           <li>Avis : jusqu&apos;à suppression par leur auteur ou par la modération.</li>
           <li>

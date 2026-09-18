@@ -26,7 +26,7 @@ Basculer `.env.local` sur le bloc « stack locale » commenté en fin de fichier
 |---|---|
 | `npm run check` | `tsc --noEmit` + tests unitaires |
 | `npm test` | Vitest (81 tests, logique pure) |
-| `npm run test:db` | pgTAP (144 tests de sécurité, nécessite `supabase start`) |
+| `npm run test:db` | pgTAP (145 tests de sécurité, nécessite `supabase start`) |
 | `npm run test:e2e` | Playwright (32 parcours, nécessite `supabase start`) |
 | `npm run build` | Build de production |
 
@@ -116,7 +116,7 @@ Trois niveaux, du plus rapide au plus complet :
 | Niveau | Couvre | Prérequis |
 |---|---|---|
 | Vitest (81) | Logique pure : validation de l'URL, formatage, slugs | aucun |
-| pgTAP (144) | RLS, GRANT de colonne, anti-spam, cloisonnement, vérification d'identité, signalements | `supabase start` |
+| pgTAP (145) | RLS, GRANT de colonne, anti-spam, cloisonnement, vérification d'identité, signalements | `supabase start` |
 | Playwright (32) | Parcours réels dans un navigateur | `supabase start` |
 
 Les tests de bout en bout s'exécutent **contre la stack locale, jamais contre le projet distant** : ils créent des comptes, déposent des demandes et publient des annonces. Le port `3210` et un build de production sont utilisés, pour exercer le comportement réel (cache et Server Actions compris) plutôt que celui du serveur de développement.
@@ -326,7 +326,7 @@ Un signalement ouvert par compte et par profil, cinq par heure par compte, jamai
 
 **Le profil suspendu ne peut pas être supprimé** (`listings_owner_delete` exige `suspended_at is null`), ni recevoir de demande ou de paiement. Un administrateur ne peut pas trancher un signalement visant son propre profil.
 
-**Le compte lui-même ne peut pas être supprimé** tant qu'un de ses profils est suspendu ou visé par un signalement ouvert : `account_has_open_moderation()` bloque `deleteMyAccount`. Sans cela, la cascade `listings.owner_id` ferait disparaître le profil signalé et l'équipe n'aurait plus personne à bloquer.
+**Le compte lui-même ne peut pas être supprimé tant qu'un examen est en cours** : `account_has_open_moderation()` bloque `deleteMyAccount` lorsqu'un signalement ouvert vise un de ses profils, ou qu'un profil non archivé est suspendu. Sans cela, la cascade `listings.owner_id` ferait disparaître le profil signalé et l'équipe n'aurait plus personne à bloquer. Une fois la décision prise, le blocage tombe : un profil retiré reste archivé et suspendu, mais n'empêche plus la suppression du compte.
 
 ### Décisions (`/admin`, en tête)
 

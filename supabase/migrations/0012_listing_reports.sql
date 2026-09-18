@@ -690,9 +690,16 @@ $$;
 revoke execute on function public.review_verification(uuid, text, public.identity_rejection_reason, text) from public, anon;
 grant execute on function public.review_verification(uuid, text, public.identity_rejection_reason, text) to authenticated;
 
--- Une suspension en cours d'examen ne doit pas pouvoir être contournée en
--- supprimant son compte : la suppression en cascade ferait disparaître
--- l'annonce, et `review_report` n'aurait plus personne à bloquer.
+-- Un examen en cours ne doit pas pouvoir être contourné en supprimant son
+-- compte : la suppression en cascade ferait disparaître l'annonce, et
+-- `review_report` n'aurait plus personne à bloquer.
+--
+-- Le blocage dure le temps de l'examen, pas au-delà de la décision. Un profil
+-- retiré par une décision (`remove` ou `block_minor`) reste archivé et
+-- suspendu définitivement : il ne doit plus empêcher la suppression du compte,
+-- sans quoi le droit à l'effacement serait bloqué indéfiniment. Seuls
+-- comptent donc un signalement encore ouvert, ou une suspension sur un profil
+-- non archivé, c'est-à-dire masqué le temps de l'examen.
 create or replace function public.account_has_open_moderation()
 returns boolean
 language sql
@@ -702,12 +709,14 @@ set search_path = public
 as $$
   select auth.uid() is not null and (
     exists (
-      select 1 from public.listings l
-       where l.owner_id = auth.uid() and l.suspended_at is not null
-    )
-    or exists (
       select 1 from public.listing_reports r
        where r.owner_id = auth.uid() and r.status = 'open'
+    )
+    or exists (
+      select 1 from public.listings l
+       where l.owner_id = auth.uid()
+         and l.suspended_at is not null
+         and l.status <> 'archived'
     )
   );
 $$;
