@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Crown, MessageCircle } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 
-import { VipPassSheet } from "@/components/listings/VipPassButton";
 import { cx, formatXAF, priceUnitLabel } from "@/lib/format";
 import { whatsAppLink } from "@/lib/whatsapp";
 import type { PriceUnit } from "@/types/listing";
@@ -22,8 +21,9 @@ interface StickyActionBarProps {
  * dépassée pour ne pas masquer le visuel d'ouverture, et respecte la safe-area
  * iOS via `pb-[env(safe-area-inset-bottom)]`.
  *
- * Les actions sont hiérarchisées : la demande classique, le Pass VIP et l'accès
- * WhatsApp direct pour un échange instantané au Congo.
+ * Deux actions : la demande (toujours présente) et WhatsApp, quand le profil a
+ * renseigné un numéro. Le Pass VIP, simulé, a été retiré en attendant un
+ * paiement réel.
  */
 export function StickyActionBar({
   listingSlug,
@@ -33,7 +33,6 @@ export function StickyActionBar({
   whatsappPhone,
 }: StickyActionBarProps) {
   const [visible, setVisible] = useState(false);
-  const [passOpen, setPassOpen] = useState(false);
 
   useEffect(() => {
     const anchor = document.getElementById("listing-gallery-anchor");
@@ -85,16 +84,6 @@ export function StickyActionBar({
             </a>
           )}
 
-          <button
-            type="button"
-            onClick={() => setPassOpen(true)}
-            aria-haspopup="dialog"
-            aria-label="Contacter avec le Pass VIP"
-            className="grid size-10 shrink-0 place-items-center rounded-xl border border-neon/35 bg-neon/12 text-neon-soft transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon/70"
-          >
-            <Crown className="size-4" aria-hidden />
-          </button>
-
           <Link
             href={`/demande/${listingSlug}`}
             className={cx(
@@ -107,18 +96,6 @@ export function StickyActionBar({
           </Link>
         </div>
       </div>
-
-      {/* Rendue hors du bandeau : celui-ci est translaté hors écran quand il
-          est masqué, ce qui emporterait la feuille avec lui. */}
-      {passOpen && (
-        <VipPassSheet
-          listingSlug={listingSlug}
-          listingTitle={listingTitle}
-          priceXaf={priceXaf}
-          priceUnit={priceUnit}
-          onClose={() => setPassOpen(false)}
-        />
-      )}
     </>
   );
 }

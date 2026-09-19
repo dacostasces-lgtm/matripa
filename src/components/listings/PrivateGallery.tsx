@@ -8,40 +8,12 @@ import type { PrivateMediaItem } from "@/types/listing";
 
 interface PrivateGalleryProps {
   listingTitle: string;
-  items?: PrivateMediaItem[];
+  /** Médias réels de l'annonce ; aucun contenu de démonstration n'est substitué. */
+  items: PrivateMediaItem[];
 }
 
-const DEFAULT_PRIVATE_ITEMS: PrivateMediaItem[] = [
-  {
-    id: "priv-1",
-    listing_id: "1",
-    type: "image",
-    preview_blur_url: "https://picsum.photos/seed/priv1/600/800",
-    full_url: "https://picsum.photos/seed/priv1/600/800",
-    price_xaf: 1500,
-    is_locked: true,
-  },
-  {
-    id: "priv-2",
-    listing_id: "1",
-    type: "image",
-    preview_blur_url: "https://picsum.photos/seed/priv2/600/800",
-    full_url: "https://picsum.photos/seed/priv2/600/800",
-    price_xaf: 1500,
-    is_locked: true,
-  },
-  {
-    id: "priv-3",
-    listing_id: "1",
-    type: "video",
-    preview_blur_url: "https://picsum.photos/seed/priv3/600/800",
-    full_url: "https://picsum.photos/seed/priv3/600/800",
-    price_xaf: 2500,
-    is_locked: true,
-  },
-];
 
-export function PrivateGallery({ listingTitle, items = DEFAULT_PRIVATE_ITEMS }: PrivateGalleryProps) {
+export function PrivateGallery({ listingTitle, items }: PrivateGalleryProps) {
   const [mediaList, setMediaList] = useState<PrivateMediaItem[]>(items);
   const [selectedMedia, setSelectedMedia] = useState<PrivateMediaItem | null>(null);
   const [unlockedSuccess, setUnlockedSuccess] = useState<string | null>(null);

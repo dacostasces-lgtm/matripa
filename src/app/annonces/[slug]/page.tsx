@@ -16,7 +16,6 @@ import { ListingCard } from "@/components/listings/ListingCard";
 import { ListingMedia } from "@/components/listings/ListingMedia";
 import { PrivateGallery } from "@/components/listings/PrivateGallery";
 import { StickyActionBar } from "@/components/listings/StickyActionBar";
-import { VipPassButton } from "@/components/listings/VipPassButton";
 import { WhatsAppDirectButton } from "@/components/listings/WhatsAppDirectButton";
 import {
   AvailableNowPill,
@@ -132,13 +131,14 @@ export default async function ListingDetailPage({ params }: DetailPageProps) {
               </p>
             </Section>
 
-            {/* Galerie privée avec verrouillage et micro-paiement */}
-            <Section title="Galerie Privée & Médias Exclusifs">
-              <PrivateGallery
-                listingTitle={listing.title}
-                items={listing.private_media}
-              />
-            </Section>
+            {/* Galerie privée : affichée seulement quand l'annonce a de vrais
+                médias. Tant que le déblocage n'est pas relié à un paiement
+                réel, aucune donnée de démonstration ne doit apparaître. */}
+            {listing.private_media && listing.private_media.length > 0 && (
+              <Section title="Galerie Privée & Médias Exclusifs">
+                <PrivateGallery listingTitle={listing.title} items={listing.private_media} />
+              </Section>
+            )}
 
             <Section title="Profil">
               <div className="flex flex-wrap gap-2">
@@ -338,12 +338,8 @@ function BookingPanel({ listing }: { listing: Listing }) {
         Effectuer une demande formelle
       </Link>
 
-      <VipPassButton
-        listingSlug={listing.slug}
-        listingTitle={listing.title}
-        priceXaf={listing.price_xaf}
-        priceUnit={listing.price_unit}
-      />
+      {/* Pass VIP retiré de l'affichage : son portefeuille était simulé.
+          À réintroduire une fois relié à un paiement réel (pawaPay). */}
 
       <p className="text-center text-xs leading-relaxed text-slate-500">
         Discrétion totale garantie. Vos coordonnées ne sont transmises qu&apos;après confirmation

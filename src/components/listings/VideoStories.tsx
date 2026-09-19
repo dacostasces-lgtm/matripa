@@ -8,7 +8,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Crown,
-  Gift,
   Heart,
   MessageCircle,
   Play,
@@ -19,7 +18,6 @@ import {
 } from "lucide-react";
 
 import { Portal } from "@/components/ui/Portal";
-import { VirtualGiftsModal } from "@/components/listings/VirtualGiftsModal";
 import { cx } from "@/lib/format";
 import { whatsAppLink } from "@/lib/whatsapp";
 import { categoryShort, cityLabel, type VideoStory } from "@/types/listing";
@@ -197,7 +195,6 @@ function StoryPlayer({
   const [progress, setProgress] = useState(0);
   const [likes, setLikes] = useState<Record<string, number>>({});
   const [hasLiked, setHasLiked] = useState<Record<string, boolean>>({});
-  const [giftModalOpen, setGiftModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
   // Verrouille le défilement de l'arrière-plan tant que le lecteur est ouvert.
@@ -310,17 +307,7 @@ function StoryPlayer({
             </button>
 
             {/* Bouton Cadeau Virtuel */}
-            <button
-              type="button"
-              onClick={() => setGiftModalOpen(true)}
-              className="flex flex-col items-center gap-0.5 text-gold transition active:scale-90"
-              aria-label="Envoyer un cadeau"
-            >
-              <div className="grid size-10 place-items-center rounded-full bg-slate-950/60 text-gold ring-1 ring-gold/40 backdrop-blur-md hover:bg-gold/20">
-                <Gift className="size-5" />
-              </div>
-              <span className="text-[10px] font-semibold drop-shadow">Cadeau</span>
-            </button>
+            {/* Cadeaux virtuels retirés : leur paiement était simulé. */}
 
             {/* Bouton WhatsApp — absent si le profil n'a pas renseigné de numéro. */}
             {whatsappHref && (
@@ -412,12 +399,6 @@ function StoryPlayer({
         <X className="size-5" aria-hidden />
       </button>
 
-      {/* Modale de cadeaux virtuels */}
-      <VirtualGiftsModal
-        listingTitle={story.title}
-        isOpen={giftModalOpen}
-        onClose={() => setGiftModalOpen(false)}
-      />
     </div>
   );
 }

@@ -50,6 +50,12 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Écran d'âge déjà validé sur cet appareil : masqué avant le premier affichage
+   (attribut posé par le script du <head>, cf. lib/age-gate). */
+html[data-majeur="1"] [data-age-gate] {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

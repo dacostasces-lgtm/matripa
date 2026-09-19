@@ -7,7 +7,7 @@
 -- lire les coordonnées des clients, ou un formulaire de spam sans limite.
 
 begin;
-select plan(37);
+select plan(46);
 
 -- Jeu d'essai ---------------------------------------------------------------
 -- Les colonnes de jetons sont mises à '' et non laissées à NULL : GoTrue les
@@ -417,6 +417,88 @@ select hasnt_column(
   'public', 'listings', 'is_video_verified',
   'la colonne is_video_verified, jamais renseignée, a disparu'
 );
+
+-- Monétisation (0014) ---------------------------------------------------------
+-- Les lignes de déblocage et de boost naissent d'un paiement confirmé, côté
+-- serveur. Côté client : lecture de ce qui vous concerne, rien d'autre.
+reset role;
+insert into public.private_media (id, listing_id, storage_path, blur_path, price_xaf)
+values ('66666666-6666-6666-6666-666666666666', '22222222-2222-2222-2222-222222222222',
+        'prive/original.jpg', 'prive/flou.jpg', 1500);
+
+set local role anon;
+
+select throws_ok(
+  $$ select storage_path from public.private_media $$,
+  '42501',
+  null,
+  'un visiteur ne peut pas lire le chemin d''un média payant'
+);
+
+select results_eq(
+  $$ select price_xaf from public.private_media $$,
+  $$ values (1500) $$,
+  'l''aperçu d''un média privé (son prix) reste public'
+);
+
+select throws_ok(
+  $$ select * from public.boosts $$,
+  '42501',
+  null,
+  'un visiteur ne voit pas le détail des boosts (montant, payeur)'
+);
+
+reset role;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}';
+
+select throws_ok(
+  $$ select storage_path from public.private_media $$,
+  '42501',
+  null,
+  'un membre connecté ne lit pas davantage le chemin d''un média payant'
+);
+
+select throws_ok(
+  $$ insert into public.private_media_unlocks (media_id, user_id)
+     values ('66666666-6666-6666-6666-666666666666', '33333333-3333-3333-3333-333333333333') $$,
+  '42501',
+  null,
+  'un membre ne peut pas se débloquer un média lui-même, sans payer'
+);
+
+select throws_ok(
+  $$ insert into public.wallet_transactions (user_id, amount_xaf, tx_type, description)
+     values ('33333333-3333-3333-3333-333333333333', 100000, 'credit', 'auto-crédit') $$,
+  '42501',
+  null,
+  'un membre ne peut pas créditer son propre portefeuille'
+);
+
+set local request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+
+select throws_ok(
+  $$ insert into public.boosts (listing_id, payer_id, plan, amount_xaf, expires_at)
+     values ('22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111',
+             'boost_24h', 1000, now() + interval '1 day') $$,
+  '42501',
+  null,
+  'un partenaire ne peut pas s''accorder un boost gratuit'
+);
+
+select lives_ok(
+  $$ update public.listings set whatsapp_phone = '+242069123456'
+      where id = '22222222-2222-2222-2222-222222222222' $$,
+  'un partenaire peut renseigner le numéro WhatsApp de son annonce'
+);
+
+select results_eq(
+  $$ select whatsapp_phone from public.listings where id = '22222222-2222-2222-2222-222222222222' $$,
+  $$ values ('+242069123456'::text) $$,
+  '… et le numéro est bien enregistré'
+);
+
+reset role;
 
 select * from finish();
 rollback;

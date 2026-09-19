@@ -31,3 +31,14 @@ export function whatsAppLink(phone: string | null | undefined, message: string):
   const number = toWhatsAppNumber(phone);
   return number ? `https://wa.me/${number}?text=${encodeURIComponent(message)}` : null;
 }
+
+/**
+ * Numéro saisi par un partenaire, prêt à enregistrer : `+` puis chiffres,
+ * seul format accepté par la contrainte de `listings.whatsapp_phone`.
+ * Champ vide → `null` (le numéro est facultatif) ; saisie inexploitable → refus.
+ */
+export function whatsAppForStorage(raw: string): { ok: true; value: string | null } | { ok: false } {
+  if (!raw.trim()) return { ok: true, value: null };
+  const number = toWhatsAppNumber(raw);
+  return number ? { ok: true, value: `+${number}` } : { ok: false };
+}

@@ -35,6 +35,7 @@ export interface EditableListing {
   mobility: string;
   city: string;
   district: string | null;
+  whatsapp_phone: string | null;
   price_xaf: number;
   price_unit: string;
   rates: Rate[];
@@ -417,6 +418,29 @@ export function ListingForm({
             defaultValue={listing?.district ?? ""}
             className={INPUT}
           />
+        </Field>
+
+        <Field
+          label="Numéro WhatsApp"
+          htmlFor="whatsapp_phone"
+          error={state.errors.whatsapp_phone}
+          hint="Facultatif"
+        >
+          <input
+            id="whatsapp_phone"
+            name="whatsapp_phone"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            maxLength={25}
+            placeholder="06 912 34 56"
+            defaultValue={listing?.whatsapp_phone ?? ""}
+            aria-describedby="whatsapp_phone-help"
+            className={INPUT}
+          />
+          <p id="whatsapp_phone-help" className="text-xs text-slate-500">
+            Affiche un bouton WhatsApp sur votre annonce. Sans numéro, les clients vous écrivent via le formulaire de demande.
+          </p>
         </Field>
 
         <div className="grid grid-cols-[1fr_auto] gap-3">

@@ -51,14 +51,14 @@ export async function countCards(page: Page): Promise<number> {
   await expect
     .poll(
       async () => {
-        const counter = page.locator('p:has-text("offre")').first();
+        const counter = page.locator('p:has-text("disponible")').first();
 
-        if ((await page.getByText("Aucune offre").count()) > 0) {
+        if ((await page.getByText("Aucun profil ne correspond").count()) > 0) {
           count = 0;
           return true;
         }
         const text = (await counter.textContent().catch(() => null)) ?? "";
-        const matched = text.match(/([0-9]+)\s*offres?\s+disponibles?/);
+        const matched = text.match(/([0-9]+)\s*profils?\s+disponibles?/);
 
         if (!matched) return false;
         count = Number.parseInt(matched[1], 10);
@@ -104,7 +104,7 @@ export async function signUpPartner(page: Page): Promise<string> {
   await page.getByRole("button", { name: "Créer mon compte" }).click();
 
   await page.waitForURL("**/partenaire", { timeout: 15_000 });
-  await expect(page.getByRole("heading", { name: "Mes offres" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Mes profils" })).toBeVisible();
   return email;
 }
 
@@ -117,28 +117,43 @@ export async function signUpPartner(page: Page): Promise<string> {
  */
 export async function publishListing(
   page: Page,
-  overrides: { city?: string; category?: string } = {},
+  overrides: { city?: string; category?: string; whatsapp?: string } = {},
 ): Promise<string> {
   const titre = `Offre E2E ${uniqueEmail().split("@")[0].slice(-8)}`;
 
-  await page.getByRole("link", { name: "Nouvelle offre" }).click();
+  await page.getByRole("link", { name: "Nouveau profil" }).first().click();
   await page.waitForURL("**/partenaire/annonces/nouvelle");
 
   await page
     .locator('input[type="file"][accept^="image"]')
     .setInputFiles({ name: "visuel.png", mimeType: "image/png", buffer: tinyPng() });
 
-  await page.getByLabel("Titre de l'offre").fill(titre);
+  await page.getByLabel("Prénom et âge").fill(titre);
   await page
     .getByLabel("Description")
     .fill("Description de test suffisamment longue pour passer la validation serveur.");
   await page.getByLabel("Catégorie").selectOption(overrides.category ?? "categorie-a");
-  await page.getByLabel("Type d'offre").selectOption("option_1");
+  await page.getByLabel("Formule").selectOption("option_1");
   await page.getByLabel("Type de service").selectOption("sur_place");
   await page.getByLabel("Ville").selectOption(overrides.city ?? "brazzaville");
   await page.getByLabel("Tarif (FCFA)").fill("50000");
-  await page.getByRole("button", { name: "Enregistrer l'offre" }).click();
+  if (overrides.whatsapp) await page.getByLabel("Numéro WhatsApp").fill(overrides.whatsapp);
+  await page.getByRole("button", { name: "Publier le profil" }).click();
   await page.waitForURL("**/partenaire?cree=1");
 
   return titre;
+}
+
+/**
+ * Adresse de la fiche complète de la première annonce de l'accueil.
+ *
+ * Les cartes de l'accueil ouvrent une fiche rapide (modale) et ne sont plus
+ * des liens : le chemin vers la page détail passe par « Voir la fiche complète ».
+ */
+export async function firstListingPath(page: Page): Promise<string> {
+  await gotoReady(page, "/");
+  await page.locator("article[role=link]").first().click();
+  const href = await page.getByRole("link", { name: /Voir la fiche complète/ }).getAttribute("href");
+  await page.keyboard.press("Escape");
+  return href!;
 }

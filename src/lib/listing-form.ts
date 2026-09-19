@@ -3,7 +3,7 @@ export interface ListingFormState {
   status: "idle" | "error";
   message: string | null;
   errors: Partial<
-    Record<"title" | "description" | "price_xaf" | "city" | "cover_url", string>
+    Record<"title" | "description" | "price_xaf" | "city" | "cover_url" | "whatsapp_phone", string>
   >;
 }
 

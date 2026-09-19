@@ -18,7 +18,8 @@ test.describe("Catalogue public", () => {
     await page.goto("/");
     const total = await countCards(page);
 
-    await page.getByRole("link", { name: "Brazzaville" }).first().click();
+    // Filtrage instantané : un bouton, sans navigation ; l'URL est mise à jour en place.
+    await page.getByRole("button", { name: "Brazzaville" }).first().click();
     await page.waitForURL("**/?city=brazzaville");
 
     const filtered = await countCards(page);
@@ -38,21 +39,27 @@ test.describe("Catalogue public", () => {
     expect(inclusif).toBeGreaterThan(strict);
   });
 
-  test("le budget maximum écarte les offres trop chères", async ({ page }) => {
+  test("le budget maximum écarte les offres trop chères, borne comprise", async ({ page }) => {
+    // Les profils du seed sont tous à 25 000 FCFA : la borne départage.
     await page.goto("/");
     const total = await countCards(page);
+    expect(total).toBeGreaterThan(0);
 
-    await page.goto("/?price_max=30000");
-    const abordables = await countCards(page);
+    // Les autres tests publient des profils plus chers : on compare les deux
+    // côtés de la borne plutôt qu'au total.
+    await page.goto("/?price_max=24999");
+    const sous = await countCards(page);
+    await page.goto("/?price_max=25000");
+    const borne = await countCards(page);
 
-    expect(abordables).toBeGreaterThan(0);
-    expect(abordables).toBeLessThan(total);
+    expect(sous).toBeLessThan(total);
+    expect(borne).toBeGreaterThan(sous);
   });
 
   test("une recherche sans résultat affiche l'état vide", async ({ page }) => {
     await page.goto("/?q=zzzzimpossible");
 
-    await expect(page.getByText("Aucune offre ne correspond")).toBeVisible();
+    await expect(page.getByText("Aucun profil ne correspond")).toBeVisible();
     expect(await countCards(page)).toBe(0);
   });
 
@@ -63,16 +70,30 @@ test.describe("Catalogue public", () => {
     expect(await countCards(page)).toBeGreaterThan(0);
   });
 
+  test("une carte ouvre la fiche rapide, qui se referme sans perdre la page", async ({ page }) => {
+    await page.goto("/");
+    await page.locator("article[role=link]").first().click();
+
+    const fiche = page.getByRole("dialog");
+    await expect(fiche).toBeVisible();
+    await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+
+    await page.keyboard.press("Escape");
+    await expect(fiche).toBeHidden();
+    await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
+  });
+
   test("la fiche détail expose les informations clés", async ({ page }) => {
     await page.goto("/");
-    await page.locator('a[href^="/annonces/"]').first().click();
+    await page.locator("article[role=link]").first().click();
+    await page.getByRole("link", { name: /Voir la fiche complète/ }).click();
     await page.waitForURL("**/annonces/**");
 
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(page.getByText("Description")).toBeVisible();
     await expect(page.getByText("Tarifs")).toBeVisible();
     await expect(
-      page.getByRole("link", { name: /Contacter \/ Effectuer une demande/ }),
+      page.getByRole("link", { name: /Effectuer une demande/ }),
     ).toBeVisible();
   });
 

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { alertBox, gotoReady, uniquePhone } from "./helpers";
+import { alertBox, firstListingPath, gotoReady, uniquePhone } from "./helpers";
 
 /**
  * Le maillon que rien d'autre ne couvre : la soumission d'un formulaire via
@@ -9,9 +9,8 @@ import { alertBox, gotoReady, uniquePhone } from "./helpers";
  */
 test.describe("Parcours de demande", () => {
   test("une demande valide est acceptée de bout en bout", async ({ page }) => {
-    await page.goto("/");
-    await page.locator('a[href^="/annonces/"]').first().click();
-    await page.getByRole("link", { name: /Contacter \/ Effectuer une demande/ }).click();
+    await gotoReady(page, await firstListingPath(page));
+    await page.getByRole("link", { name: /Effectuer une demande/ }).click();
 
     await page.waitForURL("**/demande/**");
     await expect(page.getByRole("heading", { name: "Effectuer une demande" })).toBeVisible();
@@ -28,9 +27,8 @@ test.describe("Parcours de demande", () => {
   });
 
   test("un téléphone invalide est refusé par le serveur, champ par champ", async ({ page }) => {
-    await page.goto("/");
-    const href = await page.locator('a[href^="/annonces/"]').first().getAttribute("href");
-    await gotoReady(page, `/demande/${href!.split("/").pop()}`);
+    const slug = (await firstListingPath(page)).split("/").pop();
+    await gotoReady(page, `/demande/${slug}`);
 
     // `noValidate` sur le formulaire : la validation navigateur ne masque pas
     // celle du serveur, qui est la seule qui compte.
@@ -45,11 +43,10 @@ test.describe("Parcours de demande", () => {
   });
 
   test("l'anti-spam coupe après cinq demandes pour un même numéro", async ({ page }) => {
+    test.slow(); // Six soumissions complètes d'affilée.
     const phone = uniquePhone();
 
-    await page.goto("/");
-    const href = await page.locator('a[href^="/annonces/"]').first().getAttribute("href");
-    const slug = href!.split("/").pop();
+    const slug = (await firstListingPath(page)).split("/").pop();
 
     for (let attempt = 1; attempt <= 5; attempt++) {
       await gotoReady(page, `/demande/${slug}`);
