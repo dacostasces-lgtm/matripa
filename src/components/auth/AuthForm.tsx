@@ -7,18 +7,22 @@ import { useFormStatus } from "react-dom";
 import { AlertCircle, CheckCircle2, Loader2, LogIn, UserPlus } from "lucide-react";
 
 import { signIn, signUp } from "@/app/actions/auth";
+import { SocialLogin } from "@/components/auth/SocialLogin";
+import type { AuthProvider } from "@/lib/auth-providers";
 import { INITIAL_AUTH_STATE } from "@/lib/auth-form";
 import { cx } from "@/lib/format";
 
 type Mode = "connexion" | "inscription";
 
-export function AuthForm({ next }: { next: string }) {
+export function AuthForm({ next, providers = [] }: { next: string; providers?: AuthProvider[] }) {
   const [mode, setMode] = useState<Mode>("connexion");
   const action = mode === "connexion" ? signIn : signUp;
   const [state, formAction] = useActionState(action, INITIAL_AUTH_STATE);
 
   return (
     <div className="mt-6 space-y-5">
+      <SocialLogin providers={providers} next={next} />
+
       <div
         role="tablist"
         aria-label="Mode d'authentification"

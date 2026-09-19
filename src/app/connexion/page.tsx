@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { ArrowLeft, TriangleAlert } from "lucide-react";
 
 import { AuthForm } from "@/components/auth/AuthForm";
+import { enabledAuthProviders } from "@/lib/auth-providers";
 import type { RawSearchParams } from "@/lib/filters";
 
 export const metadata: Metadata = {
@@ -24,8 +25,19 @@ export default async function ConnexionPage({
   const ERREURS: Record<string, string> = {
     lien_invalide: "Ce lien est incomplet. Demandez-en un nouveau.",
     lien_expire: "Ce lien a expiré ou a déjà été utilisé. Demandez-en un nouveau.",
+    connexion_externe:
+      "La connexion avec ce service n'a pas abouti. Réessayez, ou utilisez votre e-mail.",
   };
-  const erreur = typeof params.erreur === "string" ? ERREURS[params.erreur] : undefined;
+  const erreurCode = typeof params.erreur === "string" ? params.erreur : undefined;
+  const erreur = erreurCode ? ERREURS[erreurCode] : undefined;
+  // Seuls les liens reçus par e-mail se « renvoient » ; un échec Google,
+  // Facebook ou WhatsApp se règle en réessayant.
+  const lienEmail = erreurCode === "lien_invalide" || erreurCode === "lien_expire";
+  const providers = enabledAuthProviders({
+    NEXT_PUBLIC_AUTH_GOOGLE: process.env.NEXT_PUBLIC_AUTH_GOOGLE,
+    NEXT_PUBLIC_AUTH_FACEBOOK: process.env.NEXT_PUBLIC_AUTH_FACEBOOK,
+    NEXT_PUBLIC_AUTH_WHATSAPP: process.env.NEXT_PUBLIC_AUTH_WHATSAPP,
+  });
 
   return (
     <main className="grid min-h-dvh place-items-center bg-slate-950 px-4 py-10 text-slate-100">
@@ -60,15 +72,20 @@ export default async function ConnexionPage({
             >
               <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
               <span>
-                {erreur}{" "}
-                <Link href="/mot-de-passe-oublie" className="underline underline-offset-2">
-                  Renvoyer un lien
-                </Link>
+                {erreur}
+                {lienEmail && (
+                  <>
+                    {" "}
+                    <Link href="/mot-de-passe-oublie" className="underline underline-offset-2">
+                      Renvoyer un lien
+                    </Link>
+                  </>
+                )}
               </span>
             </p>
           )}
 
-          <AuthForm next={next} />
+          <AuthForm next={next} providers={providers} />
         </div>
 
         <p className="mt-5 text-center text-xs leading-relaxed text-slate-500">

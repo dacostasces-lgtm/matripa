@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { Download, Inbox, KeyRound, Store } from "lucide-react";
 
 import { DeleteAccountForm } from "@/components/account/DeleteAccountForm";
+import { accountIdentifier } from "@/lib/auth-providers";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -21,11 +22,13 @@ export default async function ComptePage() {
 
   if (!user) redirect("/connexion?suivant=/compte");
 
+  const identifier = accountIdentifier(user);
+
   return (
     <main className="min-h-dvh bg-slate-950 text-slate-100">
       <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
         <h1 className="text-2xl font-semibold tracking-tight text-white">Mon compte</h1>
-        <p className="mt-1.5 text-sm text-slate-400">{user.email}</p>
+        <p className="mt-1.5 text-sm text-slate-400">{identifier?.value}</p>
 
         <nav className="mt-8 grid gap-3 sm:grid-cols-2">
           <Shortcut href="/mes-demandes" icon={Inbox} label="Mes demandes" hint="Suivi et avis" />
@@ -34,6 +37,12 @@ export default async function ComptePage() {
 
         <section className="mt-10 space-y-3">
           <h2 className="text-lg font-semibold text-white">Sécurité</h2>
+          {identifier?.kind === "phone" ? (
+            <p className="text-sm leading-relaxed text-slate-400">
+              Vous vous connectez avec WhatsApp : ce compte n&apos;a pas de mot de passe. Chaque
+              connexion demande un code envoyé à votre numéro.
+            </p>
+          ) : (
           <Link
             href="/mot-de-passe-oublie"
             className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm text-slate-200 transition hover:bg-white/[0.09] hover:text-white"
@@ -41,6 +50,7 @@ export default async function ComptePage() {
             <KeyRound className="size-4" aria-hidden />
             Changer mon mot de passe
           </Link>
+          )}
         </section>
 
         <section className="mt-10 space-y-3">
@@ -68,7 +78,7 @@ export default async function ComptePage() {
             note des annonces concernées est recalculée. Les demandes que vous avez envoyées sont
             conservées par les partenaires, mais détachées de votre identité.
           </p>
-          <DeleteAccountForm email={user.email ?? ""} />
+          <DeleteAccountForm identifier={identifier} />
         </section>
       </div>
     </main>

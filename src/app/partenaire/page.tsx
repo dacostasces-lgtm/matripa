@@ -79,6 +79,18 @@ export default async function PartenairePage({
 
   return (
     <div className="space-y-10">
+      {/* Compte créé par WhatsApp : les alertes « nouvelle demande » partent
+          par e-mail et ne peuvent pas lui parvenir. */}
+      {!user.email && (
+        <p
+          role="status"
+          className="rounded-xl border border-sky-400/30 bg-sky-500/10 px-4 py-3 text-sm text-sky-100"
+        >
+          Vous êtes connecté avec WhatsApp : les alertes de nouvelles demandes sont envoyées par
+          e-mail et ne vous parviendront pas. Consultez régulièrement « Demandes reçues » ci-dessous.
+        </p>
+      )}
+
       {notice && (
         <p
           role="status"

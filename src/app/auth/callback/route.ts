@@ -21,6 +21,14 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code");
   const next = safeNext(searchParams.get("suivant"));
 
+  // Google ou Facebook renvoient `error` quand l'utilisateur annule ou que la
+  // configuration du fournisseur est incomplète : ce n'est pas un lien e-mail
+  // à renvoyer.
+  if (searchParams.get("error")) {
+    console.error("[auth] provider error", searchParams.get("error"), searchParams.get("error_description"));
+    return NextResponse.redirect(`${origin}/connexion?erreur=connexion_externe`);
+  }
+
   if (!code) {
     return NextResponse.redirect(`${origin}/connexion?erreur=lien_invalide`);
   }

@@ -6,9 +6,10 @@ import { AlertCircle, Loader2, Trash2 } from "lucide-react";
 
 import { deleteMyAccount } from "@/app/actions/account";
 import { INITIAL_AUTH_STATE } from "@/lib/auth-form";
+import { matchesAccountIdentifier, type AccountIdentifier } from "@/lib/auth-providers";
 import { cx } from "@/lib/format";
 
-export function DeleteAccountForm({ email }: { email: string }) {
+export function DeleteAccountForm({ identifier }: { identifier: AccountIdentifier | null }) {
   const [state, formAction] = useActionState(deleteMyAccount, INITIAL_AUTH_STATE);
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
@@ -37,7 +38,9 @@ export function DeleteAccountForm({ email }: { email: string }) {
 
       <div className="space-y-2">
         <label htmlFor="confirmation" className="text-sm font-medium text-white">
-          Saisissez <span className="font-mono text-rose-200">{email}</span> pour confirmer
+          Saisissez{" "}
+          <span className="font-mono text-rose-200">{identifier?.value ?? "l'identifiant du compte"}</span>{" "}
+          pour confirmer
         </label>
         <input
           id="confirmation"
@@ -51,7 +54,7 @@ export function DeleteAccountForm({ email }: { email: string }) {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <ConfirmButton disabled={typed.trim().toLowerCase() !== email.toLowerCase()} />
+        <ConfirmButton disabled={!matchesAccountIdentifier(identifier, typed)} />
         <button
           type="button"
           onClick={() => {
