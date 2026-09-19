@@ -24,7 +24,8 @@ const BUTTON =
  * Google et Facebook passent par une redirection OAuth qui revient sur
  * `/auth/callback`, lequel échange le code contre une session comme pour les
  * liens reçus par e-mail. WhatsApp envoie un code à usage unique au numéro
- * saisi (connexion par téléphone de Supabase, canal WhatsApp de Twilio).
+ * saisi (connexion par téléphone de Supabase) ; le code est acheminé par
+ * WhatsApp, ou par SMS à défaut (`/api/auth/envoi-code`).
  */
 export function SocialLogin({ providers, next }: { providers: AuthProvider[]; next: string }) {
   const [pending, setPending] = useState<AuthProvider | null>(null);
@@ -125,10 +126,8 @@ function WhatsAppLogin({ next, onBack }: { next: string; onBack: () => void }) {
       return;
     }
     setPending(true);
-    const { error: otpError } = await createClient().auth.signInWithOtp({
-      phone: normalized,
-      options: { channel: "whatsapp" },
-    });
+    // Le canal (WhatsApp puis SMS) est choisi par notre relais côté serveur.
+    const { error: otpError } = await createClient().auth.signInWithOtp({ phone: normalized });
     setPending(false);
     if (otpError) {
       console.error("[auth] whatsapp otp failed", otpError);
@@ -206,6 +205,9 @@ function WhatsAppLogin({ next, onBack }: { next: string; onBack: () => void }) {
             {pending && <Loader2 className="size-4 animate-spin" aria-hidden />}
             Recevoir un code sur WhatsApp
           </button>
+          <p className="text-center text-xs text-slate-500">
+            Sans WhatsApp sur ce numéro, le code arrive par SMS.
+          </p>
         </form>
       ) : (
         <form
