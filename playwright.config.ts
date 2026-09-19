@@ -35,6 +35,14 @@ export default defineConfig({
 
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
+    // Majorité déjà confirmée : l'écran d'âge est couvert par e2e/age.spec.ts,
+    // qui repart d'un stockage vide. Partout ailleurs, il masquerait la page.
+    storageState: {
+      cookies: [],
+      origins: [
+        { origin: `http://127.0.0.1:${PORT}`, localStorage: [{ name: "matripa:majeur", value: "1" }] },
+      ],
+    },
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },

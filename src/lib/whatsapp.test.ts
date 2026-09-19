@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { toWhatsAppNumber, whatsAppLink } from "@/lib/whatsapp";
+import { toWhatsAppNumber, whatsAppForStorage, whatsAppLink } from "@/lib/whatsapp";
 
 describe("toWhatsAppNumber", () => {
   it("garde un numéro international en retirant espaces et +", () => {
@@ -43,5 +43,22 @@ describe("whatsAppLink", () => {
 
   it("ne produit aucun lien quand l'annonce n'a pas de numéro", () => {
     expect(whatsAppLink(null, "Bonjour")).toBeNull();
+  });
+});
+
+describe("whatsAppForStorage (saisie du partenaire)", () => {
+  it("laisse le champ vide si rien n'est saisi", () => {
+    expect(whatsAppForStorage("")).toEqual({ ok: true, value: null });
+    expect(whatsAppForStorage("   ")).toEqual({ ok: true, value: null });
+  });
+
+  it("enregistre au format international accepté par la base (+ et chiffres seuls)", () => {
+    expect(whatsAppForStorage("06 912 34 56")).toEqual({ ok: true, value: "+242069123456" });
+    expect(whatsAppForStorage("+242 05-123-45-67")).toEqual({ ok: true, value: "+242051234567" });
+  });
+
+  it("signale une saisie qui n'est pas un numéro exploitable", () => {
+    expect(whatsAppForStorage("12 34")).toEqual({ ok: false });
+    expect(whatsAppForStorage("pas un numéro")).toEqual({ ok: false });
   });
 });

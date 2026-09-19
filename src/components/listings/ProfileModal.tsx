@@ -137,6 +137,14 @@ export function ProfileModal({ listing, onClose }: ProfileModalProps) {
                 <h3 className="text-sm font-semibold text-white">À propos</h3>
                 <p className="mt-2 text-sm leading-7 text-slate-300">{listing.description}</p>
               </div>
+
+              {/* Seul accès, depuis l'accueil, à la grille tarifaire, aux avis et à la demande. */}
+              <Link
+                href={`/annonces/${listing.slug}`}
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-medium text-slate-200 transition hover:border-gold/40 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon/70"
+              >
+                Voir la fiche complète : tarifs et avis
+              </Link>
             </div>
           </div>
 

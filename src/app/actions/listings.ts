@@ -6,6 +6,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { LISTINGS_TAG } from "@/lib/listings";
 import { slugify, type ListingFormState } from "@/lib/listing-form";
+import { whatsAppForStorage } from "@/lib/whatsapp";
 import {
   CATEGORIES,
   CITIES,
@@ -60,6 +61,7 @@ interface ParsedListing {
     cover_url: string;
     images: string[];
     video_url: string | null;
+    whatsapp_phone: string | null;
     amenities: string[];
     is_available_now: boolean;
     languages: string[];
@@ -122,6 +124,12 @@ function parseListing(formData: FormData): ParsedListing {
     errors.price_xaf = "Tarif invalide.";
   }
   if (!CITIES.some((c) => c.slug === city)) errors.city = "Ville invalide.";
+  // Facultatif, mais s'il est saisi il doit ouvrir une vraie conversation :
+  // c'est le lien que suivront les clients.
+  const whatsapp = whatsAppForStorage(text(formData, "whatsapp_phone"));
+  if (!whatsapp.ok) {
+    errors.whatsapp_phone = "Numéro WhatsApp invalide. Exemple : 06 912 34 56 ou +242 06 912 34 56.";
+  }
   if (!coverUrl) {
     errors.cover_url = "Ajoutez au moins une image de couverture.";
   } else if (!isOwnStorageUrl(coverUrl)) {
@@ -155,6 +163,7 @@ function parseListing(formData: FormData): ParsedListing {
       cover_url: coverUrl,
       images,
       video_url: videoUrl,
+      whatsapp_phone: whatsapp.ok ? whatsapp.value : null,
       amenities: list(text(formData, "amenities")),
       is_available_now: formData.get("is_available_now") === "on",
       languages: list(text(formData, "languages")),

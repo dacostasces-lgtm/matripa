@@ -29,7 +29,7 @@ export default async function ModifierAnnoncePage({
       // La projection est explicite : toute colonne oubliée ici arriverait
       // vide dans le formulaire et serait *effacée* à l'enregistrement, le
       // `update` réécrivant l'ensemble des champs.
-      "id, slug, title, highlight, description, category, option_type, mobility, city, district, price_xaf, price_unit, rates, cover_url, images, video_url, amenities, is_available_now, languages, availability, status",
+      "id, slug, title, highlight, description, category, option_type, mobility, city, district, whatsapp_phone, price_xaf, price_unit, rates, cover_url, images, video_url, amenities, is_available_now, languages, availability, status",
     )
     .eq("id", id)
     .eq("owner_id", user.id)

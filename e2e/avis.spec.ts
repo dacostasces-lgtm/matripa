@@ -29,6 +29,7 @@ test.describe("Suivi client et avis", () => {
    * d'une prestation confirmée, et non d'une valeur posée à la main.
    */
   test("une prestation confirmée devient une note publique", async ({ browser }) => {
+    test.slow(); // Deux comptes, une publication, une demande, une confirmation, un avis.
     const partnerCtx = await browser.newContext();
     const clientCtx = await browser.newContext();
     const partner = await partnerCtx.newPage();
