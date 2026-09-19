@@ -55,9 +55,11 @@ Migration de `requests` :
 `public.profiles`
 - `user_id uuid pk → auth.users(id) on delete cascade`,
   `display_name text not null` (2 à 30 caractères, non unique : il sert à reconnaître l'autre partie, pas à l'identifier),
-  `created_at`, `updated_at`.
-- Un utilisateur lit et écrit uniquement le sien. Le pseudonyme de l'autre
-  partie n'est exposé qu'à travers les fonctions de la messagerie.
+  `created_at`.
+- Un utilisateur lit et crée uniquement le sien, une fois, au premier message.
+  La modification du pseudonyme est hors périmètre de cette version. Le
+  pseudonyme de l'autre partie n'est exposé qu'à travers les fonctions de la
+  messagerie.
 
 ### Droits
 
@@ -73,7 +75,7 @@ nouvelles tables pour `anon` et `authenticated`, puis droits minimaux.
 | `start_conversation(listing_id, body)` | Ouvre la conversation (ou rejoint l'existante si elle est ouverte) et envoie le premier message ; renvoie l'id | Connecté ; profil publié ; pas son propre profil ; pseudonyme défini ; 10 nouvelles conversations par heure au plus ; refuse si la conversation existante est close |
 | `send_message(request_id, body)` | Envoie un message | Participant ; conversation non close ; profil encore publié ; client encore existant (`author_id` non nul) ; 30 messages par 5 minutes au plus ; passe à `contacted` à la première réponse du partenaire ; met à jour `last_message_at` |
 | `mark_conversation_read(request_id)` | Met à jour la date de lecture de l'appelant | Participant |
-| `close_conversation(request_id)` | Passe à `cancelled` | Participant (client ou partenaire) |
+| `close_conversation(request_id)` | Passe à `cancelled` | Participant (client ou partenaire) ; seulement avant confirmation — clore ensuite fermerait l'avis et le paiement du client |
 | `list_conversations()` | Liste de l'appelant : profil (titre, couverture, slug), pseudonyme de l'autre partie, dernier message, statut, non-lus, rôle | Uniquement ses conversations, comme client ou comme partenaire |
 
 - La confirmation reste l'écriture existante `update (status)` du propriétaire
@@ -121,11 +123,12 @@ complète). Il mène à `/messages/nouveau/[slug]` :
   jour), zone de saisie en bas, défilement automatique vers le dernier
   message. Selon le rôle et le statut :
   - partenaire : **« Confirmer la prestation »** tant qu'elle ne l'est pas ;
-  - client, prestation confirmée : paiement Mobile Money et avis (les
-    composants `PaymentForm` et `ReviewForm` actuels, déplacés de
-    `/mes-demandes`) ;
-  - les deux : **« Clore la conversation »**. Close : saisie désactivée,
-    historique lisible.
+  - client : paiement Mobile Money dès que le partenaire a répondu
+    (`contacted`), avis une fois la prestation confirmée — mêmes règles que
+    `/mes-demandes` aujourd'hui, avec les composants `PaymentForm` et
+    `ReviewForm` actuels ;
+  - les deux, tant que la prestation n'est pas confirmée : **« Clore la
+    conversation »**. Close : saisie désactivée, historique lisible.
 - **Dock** : onglet **Messages** avec pastille du nombre total de non-lus,
   mise à jour en temps réel. Ordre : Annonces, Messages, Favoris, Compte, puis
   Publier. Les largeurs sont revues pour tenir à 320 px.
